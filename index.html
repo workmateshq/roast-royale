@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roast Royale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/game.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game" tabindex="0"></canvas>
+
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <div class="meter left" id="meter-p">
+        <div class="who"><span>YOU</span><span class="rank">HEN SOLO · OZEKI</span><span class="stars" id="stars-p"></span></div>
+        <div class="bar-label"><span>BALANCE</span><span id="pct-p">0%</span></div>
+        <div class="bar"><div class="fill" id="fill-p"></div><div class="ticks"></div></div>
+        <div class="bar small"><div class="fill" id="brace-p"></div></div>
+      </div>
+      <div class="bout"><div class="mark">ROAST ROYALE</div><div class="name" id="bout-name">Bout 1: Initial Bash</div></div>
+      <div class="meter right" id="meter-a">
+        <div class="who"><span>CHICKOZUNA</span><span class="rank">YOKOZUNA</span><span class="stars" id="stars-a"></span></div>
+        <div class="bar-label"><span>BALANCE</span><span id="pct-a">0%</span></div>
+        <div class="bar"><div class="fill" id="fill-a"></div><div class="ticks"></div></div>
+        <div class="bar small"><div class="fill" id="brace-a"></div></div>
+      </div>
+    </div>
+    <div id="callout"></div>
+    <div id="gyoji"></div>
+    <div class="hints">
+      <span><b>WASD</b>Waddle</span><span><b>SPACE</b>Drumstick Charge (hold)</span><span><b>L-CLICK</b>Breast Push</span><span><b>DRAG</b>Turn camera</span>
+      <span><b>R-CLICK</b>Chicken Brace (hold)</span><span><b>SHIFT</b>Wing Dodge</span>
+    </div>
+  </div>
+
+  <div id="title" class="screen">
+    <div class="kanji">大 相 撲 · 丸 焼 き 場 所</div>
+    <h1 class="title">ROAST ROYALE</h1>
+    <div class="rule"></div>
+    <p class="tagline">The Grand Rotisserie Tournament. Two athletes. One ring. No heads.</p>
+    <div class="controls">
+      <div><b>WASD / Stick</b><span>Waddle. You are heavy; plan your turns.</span></div>
+      <div><b>Space (hold)</b><span>Drumstick Charge. Release to launch. Do not miss.</span></div>
+      <div><b>Left Click</b><span>Breast Push. A dignified shove.</span></div>
+      <div><b>Right Click (hold)</b><span>Chicken Brace. Plant yourself. Resist.</span></div>
+      <div><b>Shift</b><span>Wing Dodge. Let them sail past.</span></div>
+    </div>
+    <p class="tagline" style="font-size:15px;color:var(--muted)">Push your rival out of the ring, or drain their balance until they topple. Best of three bouts.</p>
+    <div class="cta" id="start-cta">PRESS ENTER OR CLICK TO MOUNT THE DOHYŌ</div>
+    <div id="load-note"></div>
+    <div class="fine">"Roast chicken" (<a href="https://skfb.ly/6XHDu" target="_blank" rel="noopener">skfb.ly/6XHDu</a>) by daidaiaoko, licensed under <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Gamepad supported.</div>
+  </div>
+
+  <div id="decision" class="screen" hidden>
+    <div class="gloss" id="dec-gloss"></div>
+    <h2 class="kimarite" id="dec-kimarite"></h2>
+    <div class="winner" id="dec-winner"></div>
+    <div class="flavour" id="dec-flavour"></div>
+    <div class="tally" id="dec-tally"></div>
+    <div class="cta" id="dec-cta">PRESS ENTER TO CONTINUE</div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

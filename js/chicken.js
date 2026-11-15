@@ -173,69 +173,35 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
   const skeleton = new THREE.Skeleton(bones);
   const B = { torso: 2, leg: [3, 4], shoulder: [5, 7], elbow: [6, 8] };
 
-  // The model is one closed skin, so a wing can't bend without dragging the torso with it. Instead
-  // each wing is cut out as its own piece that swings rigidly from the shoulder (bending only at
-  // its own elbow), and the gap it leaves on the body is closed with a small cap of the same skin.
-  const isWing = (q) => {
-    const j = wingJoints[q.x < 0 ? 0 : 1];
-    return q.y > 0.62 * H && Math.abs(q.x) / halfW > 0.72 && q.distanceTo(j.shoulder) / Math.max(0.05, j.reach) < 1.1;
-  };
+  // The model is one closed skin. Only the wing itself (out at the side, up high) follows the
+  // wing bones, blending into the body over a short band at its root, and the wing poses are kept
+  // small, so the wings stay attached and the torso skin doesn't stretch.
   const mats = [];
-  const addSkinned = (geo, mat) => {
+  for (const p of parts) {
+    const geo = p.geo;
+    const pos = geo.attributes.position;
+    const n = pos.count;
+    const idx = new Uint16Array(n * 4), wt = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) {
+      v.fromBufferAttribute(pos, i);
+      const s = v.x < 0 ? 0 : 1, f = feet[s], j = wingJoints[s];
+      const legW = smoothstep(LEG_TOP * H, (HIP_Y - 0.12) * H, v.y) * smoothstep(0.2, 0.6, Math.abs(v.x) / Math.max(0.05, Math.abs(f.x)));
+      const along = v.distanceTo(j.shoulder) / Math.max(0.05, j.reach);
+      const wingW = (1 - legW) * smoothstep(0.68, 0.8, Math.abs(v.x) / halfW) * smoothstep(0.58 * H, 0.68 * H, v.y) * (1 - smoothstep(1.0, 1.2, along));
+      const elbowW = wingW * smoothstep(0.45, 0.7, along);
+      idx.set([B.leg[s], B.shoulder[s], B.elbow[s], B.torso], i * 4);
+      wt.set([legW, wingW - elbowW, elbowW, Math.max(0, 1 - legW - wingW)], i * 4);
+    }
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
+    geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wt, 4));
+    const mat = p.mat.clone();
+    paintMawashi(mat, belt, rest);
+    mats.push(mat);
     const mesh = new THREE.SkinnedMesh(geo, mat);
     mesh.castShadow = mesh.receiveShadow = true;
     mesh.frustumCulled = false;
     rig.add(mesh);
     mesh.bind(skeleton);
-  };
-  for (const p of parts) {
-    const geo = p.geo;
-    const pos = geo.attributes.position;
-    const n = pos.count;
-    if (!geo.index) geo.setIndex([...Array(n).keys()]);
-    const index = geo.index.array;
-    // Two skinnings for every vertex: as body (torso and legs) and as wing (shoulder and elbow).
-    const bodyIdx = new Uint16Array(n * 4), bodyWt = new Float32Array(n * 4);
-    const wingIdx = new Uint16Array(n * 4), wingWt = new Float32Array(n * 4);
-    for (let i = 0; i < n; i++) {
-      v.fromBufferAttribute(pos, i);
-      const s = v.x < 0 ? 0 : 1, f = feet[s], j = wingJoints[s];
-      const legW = smoothstep(LEG_TOP * H, (HIP_Y - 0.12) * H, v.y) * smoothstep(0.2, 0.6, Math.abs(v.x) / Math.max(0.05, Math.abs(f.x)));
-      bodyIdx.set([B.leg[s], B.torso, B.torso, B.torso], i * 4);
-      bodyWt.set([legW, 1 - legW, 0, 0], i * 4);
-      const e = smoothstep(0.4, 0.6, v.distanceTo(j.shoulder) / Math.max(0.05, j.reach));
-      wingIdx.set([B.shoulder[s], B.elbow[s], B.torso, B.torso], i * 4);
-      wingWt.set([1 - e, e, 0, 0], i * 4);
-    }
-    const mat = p.mat.clone();
-    paintMawashi(mat, belt, rest);
-    mats.push(mat);
-
-    // Every triangle is either body or wing, by where its centre is.
-    const sets = [[], [], []];
-    const cen = new THREE.Vector3(), q = new THREE.Vector3();
-    for (let t = 0; t < index.length; t += 3) {
-      cen.set(0, 0, 0);
-      for (let k = 0; k < 3; k++) cen.add(q.fromBufferAttribute(pos, index[t + k]));
-      cen.divideScalar(3);
-      sets[isWing(cen) ? (cen.x < 0 ? 1 : 2) : 0].push(index[t], index[t + 1], index[t + 2]);
-    }
-    // Each piece gets its own skinning, so the body never stretches when a wing moves.
-    const piece = (tris, si, sw) => {
-      const g = new THREE.BufferGeometry();
-      for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
-      g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
-      g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-      g.setIndex(tris);
-      return g;
-    };
-    addSkinned(piece(sets[0], bodyIdx, bodyWt), mat);
-    for (const w of [1, 2]) {
-      if (!sets[w].length) continue;
-      addSkinned(piece(sets[w], wingIdx, wingWt), mat);
-      const cap = capHole(geo, sets[w], B.torso);
-      if (cap) addSkinned(cap, mat);
-    }
   }
   rig.userData.rig = {
     pelvis, torso, legs, arms, hipY, H, mats,
@@ -243,56 +209,6 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
     phase: 0, amp: 0, dir: new THREE.Vector2(0, 1), push: 0, wingT: Math.random() * 10,
   };
   return rig;
-}
-
-// The body's hole where a wing was cut out: a fan of triangles from the hole's edge to a point
-// set slightly into the body, skinned to the torso. Its texture is stretched from the edge, which
-// only shows when the wing is lifted away.
-function capHole(geo, tris, torsoBone) {
-  const pos = geo.attributes.position, uv = geo.attributes.uv, nrm = geo.attributes.normal;
-  // Weld by position (the model repeats vertices along texture seams) and find edges used once.
-  const weld = new Map(), id = (i) => {
-    const k = `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
-    if (!weld.has(k)) weld.set(k, i);
-    return weld.get(k);
-  };
-  const edges = new Map();
-  for (let t = 0; t < tris.length; t += 3) {
-    for (let e = 0; e < 3; e++) {
-      const a = tris[t + e], b = tris[t + (e + 1) % 3], wa = id(a), wb = id(b);
-      const k = wa < wb ? `${wa}_${wb}` : `${wb}_${wa}`;
-      const prev = edges.get(k);
-      edges.set(k, prev ? null : [a, b]);
-    }
-  }
-  const border = [...edges.values()].filter(Boolean);
-  if (border.length < 3) return null;
-  const centre = new THREE.Vector3(), out = new THREE.Vector3(), q = new THREE.Vector3();
-  let u = 0, w = 0;
-  border.forEach(([a]) => {
-    centre.add(q.fromBufferAttribute(pos, a));
-    if (nrm) out.add(q.fromBufferAttribute(nrm, a));
-    if (uv) { u += uv.getX(a); w += uv.getY(a); }
-  });
-  centre.divideScalar(border.length);
-  out.normalize();
-  centre.addScaledVector(out, -0.015);   // sunk a touch, like the hollow under an arm
-  const P = [], N = [], U = [];
-  const push = (p, nn, uu, vv) => { P.push(p.x, p.y, p.z); N.push(nn.x, nn.y, nn.z); U.push(uu, vv); };
-  for (const [a, b] of border) {
-    for (const i of [a, b]) push(q.fromBufferAttribute(pos, i), nrm ? new THREE.Vector3().fromBufferAttribute(nrm, i) : out, uv ? uv.getX(i) : 0, uv ? uv.getY(i) : 0);
-    push(centre, out, u / border.length, w / border.length);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
-  const count = P.length / 3;
-  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(count * 4).fill(torsoBone), 4));
-  const wts = new Float32Array(count * 4);
-  for (let i = 0; i < count; i++) wts[i * 4] = 1;
-  g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wts, 4));
-  return g;
 }
 
 // ---------- The visual for one wrestler ----------
@@ -353,14 +269,19 @@ export function poseChicken(v, w, dt, o) {
   const fwd = vx * Math.sin(h) + vz * Math.cos(h);
   const side = vx * Math.cos(h) - vz * Math.sin(h);
   const speed = Math.hypot(fwd, side);
-  const moving = speed > 0.1 && !w.done && o.canWalk;
+  // Turning on the spot counts as stepping: the feet shuffle round (about a foot's width from the
+  // middle) rather than the chicken spinning on them.
+  const turnStep = Math.abs(w.turnVel || 0) * 0.32;
+  const stepSpeed = Math.max(speed, turnStep);
+  const moving = stepSpeed > 0.1 && !w.done && o.canWalk;
   if (speed > 0.05) r.dir.lerp(new THREE.Vector2(side, fwd).normalize(), Math.min(1, dt * 10)).normalize();
+  else if (turnStep > 0.1) r.dir.lerp(new THREE.Vector2(Math.sign(w.turnVel), 0.25).normalize(), Math.min(1, dt * 10)).normalize();
 
   // Stride: longer and quicker the faster it goes.
-  const wantAmp = moving ? clamp(0.16 + speed * 0.09, 0, 0.6) : 0;
+  const wantAmp = moving ? clamp(0.16 + stepSpeed * 0.09, 0, 0.6) : 0;
   r.amp += (wantAmp - r.amp) * Math.min(1, dt * (moving ? 8 : 5));
   const stride = 4 * L * Math.sin(Math.max(0.14, r.amp));   // body travel per full cycle (two steps)
-  if (moving) r.phase = (r.phase + (speed * dt) / stride) % 1;
+  if (moving) r.phase = (r.phase + (stepSpeed * dt) / stride) % 1;
   else r.phase += ((Math.round(r.phase * 2) / 2) - r.phase) * Math.min(1, dt * 6);   // settle onto both feet
 
   const crouch = o.crouch;                           // knees can't bend, so the hips sink and the legs splay
@@ -400,21 +321,21 @@ export function poseChicken(v, w, dt, o) {
   r.wingT += dt;
   const swing = 0.35 * Math.min(1, r.amp / 0.3) * Math.sin(r.phase * Math.PI * 2);   // arms swing against the legs
   const ARM = {
-    idle:    [0, 0.04, 0],
-    walk:    [0, 0.06, 0.05],
-    push:    [-1.3, -0.15, -0.1],        // both wings thrust straight ahead, elbows locked
-    brace:   [-0.45, 0.5, 0.7],          // wings out a little, tips folded back, ready to absorb
-    windup:  [0.6, 0.25, 0.8],           // drawn back
-    charge:  [-1.0, 0.05, 0.15],         // reaching ahead into the hit
-    dodge:   [0.15, 0.7, 0.35],          // lifted out for balance
-    flail:   [-0.25, 0.75, 0.5],         // windmilling at the straw / staggering
-    victory: [-0.3, 0.85, 0.4],
-    flap:    [-0.2, 0.8, 0.45],          // on its back: wings flapping helplessly
-    down:    [0.15, 0.6, 0.2],
+    idle:    [0, 0, 0],
+    walk:    [0, 0.02, 0.05],
+    push:    [-0.75, -0.08, -0.1],       // both wings swing forward into the shove
+    brace:   [-0.3, 0.35, 0.4],          // wings out a little, tips folded back, ready to absorb
+    windup:  [0.4, 0.15, 0.45],          // drawn back
+    charge:  [-0.6, 0.02, 0.1],          // reaching ahead into the hit
+    dodge:   [0.1, 0.4, 0.2],            // lifted out for balance
+    flail:   [-0.15, 0.45, 0.3],         // windmilling at the straw / staggering
+    victory: [-0.2, 0.5, 0.25],
+    flap:    [-0.1, 0.45, 0.25],         // on its back: wings flapping helplessly
+    down:    [0.1, 0.35, 0.15],
   }[o.armPose] || [0, 0, 0];
   r.push += ((o.armPose === 'push' ? 1 : 0) - r.push) * Math.min(1, dt * 18);
-  const wob = o.armPose === 'flail' ? Math.sin(r.wingT * 22) * 0.6 : o.armPose === 'victory' ? Math.sin(r.wingT * 6.4) * 0.4
-    : o.armPose === 'flap' ? Math.sin(r.wingT * 26) * 0.75 : 0;
+  const wob = o.armPose === 'flail' ? Math.sin(r.wingT * 22) * 0.35 : o.armPose === 'victory' ? Math.sin(r.wingT * 6.4) * 0.25
+    : o.armPose === 'flap' ? Math.sin(r.wingT * 26) * 0.45 : 0;
   r.arms.forEach((arm, k) => {
     const sg = k ? 1 : -1;            // mirror left/right
     const ph = k ? swing : -swing;

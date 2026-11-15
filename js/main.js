@@ -147,7 +147,7 @@ const FLAVOUR = {
 const pick = (a) => a[(Math.random() * a.length) | 0];
 
 function boutTitle() {
-  return `Bout ${game.bout}: ${BOUT_NAMES[Math.min(game.bout, BOUT_NAMES.length) - 1]}${game.rematch ? ' (Rematch)' : ''}`;
+  return `Round ${game.bout}: ${BOUT_NAMES[Math.min(game.bout, BOUT_NAMES.length) - 1]}${game.rematch ? ' (Rematch)' : ''}`;
 }
 
 function startBout() {
@@ -168,7 +168,7 @@ function startBout() {
     emit(new THREE.Vector3(w.pos.x, PLATFORM_H + 1.1, w.pos.y), 40, { colour: 0xffffff, speed: 1.2, up: 2.4, life: 1.4, grav: 5, drag: 0.6, size: 0.045, dir });
   };
   game.cues = [
-    { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`BOUT ${game.bout}<small>${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
+    { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`ROUND ${game.bout}<small>${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
     { at: 1.0, fn: () => { throwSalt(player); throwSalt(cpu); gyoji('The ring is purified with salt.', 1.2); } },
     { at: 2.0, fn: () => { callout('HAKKEYOI!', 1.0); sfx.taiko(); } },
     { at: 3.1, fn: () => { excite(5); callout('NOKOTTA!', 0.9); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
@@ -208,7 +208,7 @@ function decide() {
   game.timeScale = 0.28;   // the slow, solemn replay of the moment it ended
   sfx.crowd(0.45);
   if (fallen.length === 2 && fallen[1].doneAt - fallen[0].doneAt < 0.12) {
-    game.decision = { kimarite: 'MONO-II!', gloss: 'THE JUDGES CONFER', winner: 'NO DECISION', flavour: 'Both athletes left the contest at the same instant. Torn between them, the judges order a rematch.' };
+    game.decision = { kimarite: 'MONO-II!', gloss: 'THE JUDGES CONFER', winner: 'NO DECISION', flavour: 'Both athletes left the contest at the same instant. Torn between them, the judges order the round fought again.' };
     game.winner = null;
     game.rematch = true;
     return;

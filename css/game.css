@@ -6,7 +6,8 @@
   --arcade: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0806; color: var(--ink); font-family: var(--arcade); }
+html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+   margin: 0; height: 100%; overflow: hidden; background: #0b0806; color: var(--ink); font-family: var(--arcade); }
 canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; outline: none; }
 [hidden] { display: none !important; }
 
@@ -23,6 +24,7 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .meter.right { justify-self: end; text-align: right; }
 .meter .who { display: flex; align-items: baseline; gap: 10px; font-weight: 700; font-size: clamp(16px, 1.6vw, 21px); letter-spacing: 0.06em; }
 .meter.right .who { flex-direction: row-reverse; }
+.meter .belt { display: inline-block; width: 26px; height: 12px; border-radius: 3px; background: var(--belt); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35), 0 0 10px var(--belt); align-self: center; }
 .meter .rank { font-size: 12px; color: var(--muted); letter-spacing: 0.14em; font-weight: 600; }
 .meter .stars { margin-left: auto; letter-spacing: 3px; font-size: 15px; color: var(--ink); }
 .meter.right .stars { margin-left: 0; margin-right: auto; }

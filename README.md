@@ -24,7 +24,7 @@ Then open http://localhost:3970.
 
 Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 
-Win a bout by pushing your rival out of the ring (Yorikiri), or draining their balance to 100% so they topple (Koppori). Stepping out on your own is Isamiashi. Best of three.
+Win a round by pushing your rival out of the ring (Yorikiri), or draining their balance to 100% so they topple (Koppori). Stepping out on your own is Isamiashi. Best of three rounds.
 
 ## Files
 

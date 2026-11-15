@@ -1,8 +1,8 @@
 // Roast Royale: camera, animation, HUD, the tournament flow and the main loop.
 import * as THREE from 'three';
-import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES, V2, rand, wrap, clamp } from './config.js';
+import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES, V2, rand, wrap, clamp, smoothstep } from './config.js';
 import { renderer, scene, camera, canvas } from './scene.js';
-import { emit, updateParticles, sfx, shake, view } from './effects.js';
+import { emit, updateParticles, sfx, shake, view, updateFlashes, excite } from './effects.js';
 import { loadModel, poseChicken, debugRig } from './chicken.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
@@ -67,7 +67,16 @@ function animate(w, t, dt) {
     case 'dodge': crouch = 0.3; roll = -w.dodgeDir * 0.35 * Math.sin(Math.min(1, w.t / 0.34) * Math.PI); armPose = 'dodge'; break;
     case 'stagger': pitch = -0.12; roll = Math.sin(t * 16) * 0.22 * Math.max(0, 1 - w.t / w.staggerFor); armPose = 'flail'; break;
     case 'down': roll = 1.45 * w.fallSign; pitch = -0.2; armPose = 'down'; canWalk = false; break;   // keeled over on its side
-    case 'out': pitch = 0.45; roll = 0.35 * w.fallSign; armPose = 'flail'; canWalk = false; break;
+    case 'out': {
+      // Tripped over the straw: a stumble back, then flat on its back, drumsticks and wings flapping.
+      const ft = clock.t - w.doneAt;
+      const tip = smoothstep(0.08, 0.5, ft);
+      pitch = -0.25 * Math.sin(Math.min(1, ft / 0.12) * Math.PI) - 1.62 * tip;   // a lurch, then over backwards
+      roll = 0.15 * w.fallSign * tip + (ft > 0.5 ? Math.sin(ft * 9) * 0.06 : 0);   // rocking on its back
+      armPose = ft > 0.35 ? 'flap' : 'flail';
+      canWalk = false;
+      break;
+    }
   }
   if (w.teeter > 0 && !w.done) { pitch += Math.sin(t * 12) * 0.12 * w.teeter; roll += Math.sin(t * 9) * 0.1 * w.teeter; armPose = 'flail'; }   // windmilling at the straw
   if (game.phase === 'ready' && game.phaseT > 1.9) { crouch = 0.8; pitch = 0.12; armPose = 'brace'; }                                       // the crouch before the clash
@@ -82,8 +91,9 @@ function animate(w, t, dt) {
   v.root.rotation.y = w.heading;
   // Top-heavy: when standing it balances leaning a little forward over its feet.
   v.body.rotation.set(a.pitch + (w.done ? 0 : 0.14), 0, a.roll);
+  const onBack = Math.max(0, -a.pitch);   // how far it's gone over backwards
   // Tipping over pivots on the feet; lifted a little as it goes so it rolls onto its side, not into the sand.
-  v.body.position.set(0, Math.abs(Math.sin(a.roll)) * 0.2, a.lunge);
+  v.body.position.set(0, Math.abs(Math.sin(a.roll)) * 0.2 + Math.sin(Math.min(Math.PI / 2, onBack)) * 0.55, a.lunge - Math.sin(Math.min(Math.PI / 2, onBack)) * 0.5);
   poseChicken(v, w, dt, { crouch: a.crouch, squash: a.squash, armPose, canWalk });
   const ground = Math.abs(w.pos.x) < PLATFORM / 2 && Math.abs(w.pos.y) < PLATFORM / 2 ? PLATFORM_H : 0;
   v.blob.position.set(w.pos.x, ground + 0.012, w.pos.y);
@@ -161,7 +171,7 @@ function startBout() {
     { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`BOUT ${game.bout}<small>${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
     { at: 1.0, fn: () => { throwSalt(player); throwSalt(cpu); gyoji('The ring is purified with salt.', 1.2); } },
     { at: 2.0, fn: () => { callout('HAKKEYOI!', 1.0); sfx.taiko(); } },
-    { at: 3.1, fn: () => { callout('NOKOTTA!', 0.9); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
+    { at: 3.1, fn: () => { excite(5); callout('NOKOTTA!', 0.9); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
   ];
   game.rematch = false;
 }
@@ -191,6 +201,7 @@ function checkEvents() {
 }
 
 function decide() {
+  excite(12);
   const fallen = [player, cpu].filter((w) => w.done).sort((a, b) => a.doneAt - b.doneAt);
   game.phase = 'decision';
   game.phaseT = 0;
@@ -298,7 +309,10 @@ function frame(now) {
   // ?pose=push (or brace, windup, charge, dodge, idle...): a close-up of your chicken holding that pose.
   if (POSE) {
     player.pos.set(0, 0); player.vel.set(0, 0); player.heading = 0.6;
-    if (player.state !== POSE.state || player.t > 0.2) { player.set(POSE.state); player.t = 0.1; player.charge = 1; }
+    if (POSE.state === 'out') {
+      // Replays the ring-out fall every 3 seconds.
+      if (player.state !== 'out' || clock.t - player.doneAt > 3) { player.set('out'); player.doneAt = clock.t; player.fallSign = 1; }
+    } else if (player.state !== POSE.state || player.t > 0.2) { player.set(POSE.state); player.t = 0.1; player.charge = 1; }
     cpu.pos.set(0, 9); cpu.vel.set(0, 0);
   }
   const simulate = game.phase === 'fight' || game.phase === 'decision' || game.phase === 'screen' || game.phase === 'title';
@@ -328,6 +342,8 @@ function frame(now) {
   animate(player, game.realT, real);
   animate(cpu, game.realT + 1.7, real);
   updateParticles(real * Math.max(0.35, game.timeScale));
+  // More cameras going off when it's tense (locked together, or a big moment).
+  updateFlashes(real, game.phase === 'fight' ? 1 + Math.min(2, contact.t) : 0.6);
   updateCamera(real);
   if (POSE) { camera.position.set(Math.sin(POSE.az) * 2.6, PLATFORM_H + 1.1, Math.cos(POSE.az) * 2.6); camera.lookAt(0, PLATFORM_H + 0.7, 0); }
   updateHud(real);

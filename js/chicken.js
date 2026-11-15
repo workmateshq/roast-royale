@@ -369,7 +369,13 @@ export function poseChicken(v, w, dt, o) {
   r.pelvis.position.y = pelvisY;
   const splay = 0.08 + crouch * 0.42;
 
-  r.legs.forEach((leg, k) => {
+  if (o.armPose === 'flap') {
+    // Legs in the air, pedalling.
+    r.legs.forEach((leg, k) => {
+      leg.rotation.set(-0.5 + Math.sin(r.wingT * 13 + k * Math.PI) * 0.4, 0, (k ? 1 : -1) * 0.25);
+      leg.scale.set(1, 1, 1);
+    });
+  } else r.legs.forEach((leg, k) => {
     const p = (r.phase + k * 0.5) % 1;
     let s, lift;
     if (p < 0.5) { s = 1 - 4 * p; lift = 0; }                           // planted: sweeps steadily back
@@ -403,16 +409,18 @@ export function poseChicken(v, w, dt, o) {
     dodge:   [0.15, 0.7, 0.35],          // lifted out for balance
     flail:   [-0.25, 0.75, 0.5],         // windmilling at the straw / staggering
     victory: [-0.3, 0.85, 0.4],
+    flap:    [-0.2, 0.8, 0.45],          // on its back: wings flapping helplessly
     down:    [0.15, 0.6, 0.2],
   }[o.armPose] || [0, 0, 0];
   r.push += ((o.armPose === 'push' ? 1 : 0) - r.push) * Math.min(1, dt * 18);
-  const wob = o.armPose === 'flail' ? Math.sin(r.wingT * 22) * 0.6 : o.armPose === 'victory' ? Math.sin(r.wingT * 6.4) * 0.4 : 0;
+  const wob = o.armPose === 'flail' ? Math.sin(r.wingT * 22) * 0.6 : o.armPose === 'victory' ? Math.sin(r.wingT * 6.4) * 0.4
+    : o.armPose === 'flap' ? Math.sin(r.wingT * 26) * 0.75 : 0;
   r.arms.forEach((arm, k) => {
     const sg = k ? 1 : -1;            // mirror left/right
     const ph = k ? swing : -swing;
     const target = { s: [ARM[0] + ph + (k ? wob : -wob) * 0.5, 0, sg * (ARM[1] + Math.abs(wob) * 0.3)], e: ARM[2] };
     arm.cur = arm.cur || { s: [0, 0, 0], e: 0 };
-    const kk = Math.min(1, dt * (o.armPose === 'push' ? 22 : 10));
+    const kk = Math.min(1, dt * (o.armPose === 'push' ? 22 : o.armPose === 'flap' ? 30 : 10));
     for (let i = 0; i < 3; i++) arm.cur.s[i] += (target.s[i] - arm.cur.s[i]) * kk;
     arm.cur.e += (target.e - arm.cur.e) * kk;
     turn(arm.shoulder, r.rest.arms[k].s, arm.cur.s[0], arm.cur.s[1], arm.cur.s[2]);

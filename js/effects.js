@@ -110,3 +110,38 @@ export const sfx = {
   crowd(vol = 0.35) { noise(2.4, { type: 'bandpass', freq: 700, q: 0.6, vol, attack: 0.3 }); },
   salt() { noise(0.35, { type: 'highpass', freq: 3500, vol: 0.18, attack: 0.02 }); },
 };
+
+// =====================================================================================
+// The crowd's cameras: little white flashes out in the dark stands. A few lights do the work
+// (each flash briefly lights the hall nearby) plus a bright sprite for the flash itself.
+// excite() makes a burst of them at big moments.
+// =====================================================================================
+const flashes = [];
+for (let i = 0; i < 6; i++) {
+  const light = new THREE.PointLight(0xe8f0ff, 0, 7, 1.6);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0 }));
+  sprite.scale.setScalar(0.5);
+  scene.add(light, sprite);
+  flashes.push({ light, sprite, t: 1 });
+}
+let nextFlash = 1, buzz = 0;
+function popFlash() {
+  const f = flashes.find((q) => q.t >= 1) || flashes[0];
+  const a = rand(0, Math.PI * 2), r = rand(13, 19);
+  f.light.position.set(Math.sin(a) * r, rand(1.2, 4.5), Math.cos(a) * r);
+  f.sprite.position.copy(f.light.position);
+  f.t = 0;
+}
+export function excite(n = 6) { buzz = Math.min(12, buzz + n); }
+export function updateFlashes(dt, intensity = 1) {
+  nextFlash -= dt * intensity;
+  if (nextFlash <= 0) { popFlash(); nextFlash = rand(0.25, 1.4); }
+  if (buzz > 0 && Math.random() < dt * 14) { popFlash(); buzz--; }
+  for (const f of flashes) {
+    f.t = Math.min(1, f.t + dt / 0.14);
+    const k = f.t < 1 ? Math.pow(1 - f.t, 2) : 0;
+    f.light.intensity = 26 * k;
+    f.sprite.material.opacity = k;
+    f.sprite.scale.setScalar(0.35 + 0.4 * k);
+  }
+}

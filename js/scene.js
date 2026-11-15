@@ -34,9 +34,11 @@ addEventListener('resize', () => {
 
 // Lighting: one warm arena spotlight from the roof (the key light, with shadows), a dim warm/cool
 // hemisphere for the soft fill, and a low rim light so silhouettes read against the dark hall.
-scene.add(new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.55));
-const spot = new THREE.SpotLight(0xffd29a, 260, 0, 0.62, 0.55, 2);
-spot.position.set(1.5, 13, 2.5);
+scene.add(new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.32));
+// Straight down from the roof onto the ring, with a tight cone and a short soft edge, so the light
+// pools on the dohyō and the hall beyond stays dark.
+const spot = new THREE.SpotLight(0xffd29a, 330, 0, 0.42, 0.28, 2);
+spot.position.set(0.4, 15, 0.6);
 spot.target.position.set(0, PLATFORM_H, 0);
 spot.castShadow = true;
 spot.shadow.mapSize.set(2048, 2048);
@@ -220,10 +222,38 @@ scene.add(arena);
     });
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.repeat.set(1, 1);
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 4.4), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide }));
     const a = (i / 14) * Math.PI * 2;
-    flag.position.set(Math.sin(a) * 14.5, 2.6, Math.cos(a) * 14.5);
-    flag.lookAt(0, 2.6, 0);
-    arena.add(flag);
+    const nobori = new THREE.Group();
+    nobori.position.set(Math.sin(a) * 14.5, 0, Math.cos(a) * 14.5);
+    nobori.lookAt(0, 0, 0);
+    // The banner hangs from a crossbar on a tall pole, its foot a little off the floor.
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 4.4), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide }));
+    flag.position.set(0, 2.85, 0);
+    flag.castShadow = true;
+    nobori.add(flag);
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 0.6 });
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 5.2, 8), poleMat);
+    pole.position.set(-0.6, 2.6, 0.02);
+    pole.castShadow = true;
+    nobori.add(pole);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.25, 6), poleMat);
+    bar.rotation.z = Math.PI / 2;
+    bar.position.set(0, 5.07, 0.02);
+    nobori.add(bar);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.18, 12), new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.9 }));
+    base.position.set(-0.6, 0.09, 0.02);
+    base.castShadow = base.receiveShadow = true;
+    nobori.add(base);
+    // A soft shadow pooled on the floor at its foot.
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), new THREE.MeshBasicMaterial({ map: softDot, color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false }));
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(-0.2, 0.01, 0.15);
+    nobori.add(pool);
+    arena.add(nobori);
   }
+  // The banners just catch a little warm light from above, rather than the main spot spilling onto them.
+  const glow = new THREE.SpotLight(0xffc98a, 30, 26, 1.25, 0.9, 1.2);
+  glow.position.set(0, 9, 0);
+  glow.target.position.set(0, 0, 0);
+  arena.add(glow, glow.target);
 }

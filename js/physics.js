@@ -203,6 +203,18 @@ export function stepWrestler(w, it, opp, dt) {
     const speed = w.vel.length();
     w.vel.multiplyScalar(Math.max(0, 1 - 1.8 * dt));
     if (speed > 0) w.vel.multiplyScalar(Math.max(0, speed - 2 * dt) / speed);
+    // Lying down takes up more room than standing: keep the fallen body clear of the straw bales.
+    // Toppled inside the ring, it settles a little further in; out of the ring, a little further out,
+    // turned to face the middle so it falls backwards away from the bales.
+    const r = w.pos.length();
+    if (r > 0.01) {
+      const target = w.state === 'down' ? Math.min(r, RING_R - 0.9) : Math.max(r, RING_R + 0.95);
+      w.pos.multiplyScalar(1 + (target / r - 1) * Math.min(1, dt * 6));
+      if (w.state === 'out') {
+        const face = Math.atan2(-w.pos.x, -w.pos.y);
+        w.heading = wrap(w.heading + wrap(face - w.heading) * Math.min(1, dt * 8));
+      }
+    }
   }
 
   w.pos.addScaledVector(w.vel, dt);

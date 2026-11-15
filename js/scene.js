@@ -18,7 +18,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d0907);
-scene.fog = new THREE.Fog(0x0d0907, 18, 42);
+scene.fog = new THREE.Fog(0x0d0907, 14, 30);
 // A soft studio reflection so roast skin glistens without washing out the warm spotlight.
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -34,10 +34,10 @@ addEventListener('resize', () => {
 
 // Lighting: one warm arena spotlight from the roof (the key light, with shadows), a dim warm/cool
 // hemisphere for the soft fill, and a low rim light so silhouettes read against the dark hall.
-scene.add(new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.32));
+scene.add(new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.16));
 // Straight down from the roof onto the ring, with a tight cone and a short soft edge, so the light
 // pools on the dohyō and the hall beyond stays dark.
-const spot = new THREE.SpotLight(0xffd29a, 330, 0, 0.42, 0.28, 2);
+const spot = new THREE.SpotLight(0xffd29a, 340, 0, 0.36, 0.22, 2);
 spot.position.set(0.4, 15, 0.6);
 spot.target.position.set(0, PLATFORM_H, 0);
 spot.castShadow = true;
@@ -252,7 +252,7 @@ scene.add(arena);
     arena.add(nobori);
   }
   // The banners just catch a little warm light from above, rather than the main spot spilling onto them.
-  const glow = new THREE.SpotLight(0xffc98a, 30, 26, 1.25, 0.9, 1.2);
+  const glow = new THREE.SpotLight(0xffc98a, 14, 22, 1.25, 0.9, 1.2);
   glow.position.set(0, 9, 0);
   glow.target.position.set(0, 0, 0);
   arena.add(glow, glow.target);

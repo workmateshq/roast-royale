@@ -773,8 +773,8 @@ function showChampion() {
 }
 
 // =====================================================================================
-// The solo tournament: eight stages up the banzuke. A mirror match against your own chicken, the six
-// other chickens in a random order, then Megarōsuto. Each stage is best of three; the battle plan
+// The solo tournament: eight stages up the banzuke. The six other chickens in a random order, a mirror
+// match against your own chicken, then Megarōsuto. Each stage is best of three; the battle plan
 // shows where you are between stages. Lose a stage and you can continue (fight it again) within ten
 // seconds, or it's back home.
 // =====================================================================================
@@ -787,9 +787,9 @@ const solo = { stage: 0, order: [], climb: false, said: false, tier: 0 };
 const TIERS = 3;
 // The rival for stage n (0-based): { pick, name, mirror, boss }.
 function stageRival(n) {
-  if (n === 0) return { pick: sel.i, name: ROSTER[sel.i].name, mirror: true };
+  if (n === STAGES - 2) return { pick: sel.i, name: ROSTER[sel.i].name, mirror: true };
   if (n === STAGES - 1) return { pick: BOSS_PICK, name: BOSS.name, boss: true };
-  const i = solo.order[n - 1];
+  const i = solo.order[n];
   return { pick: i, name: ROSTER[i].name };
 }
 // The CPU gets sharper every stage. Easy: a gentle start (≈0.1) ramping to full strength for the last rival
@@ -849,7 +849,7 @@ function renderPlan(climb) {
     el.className = `rung${n < solo.stage ? ' beaten' : ''}${n === solo.stage ? ' current' : ''}${climb && n === solo.stage - 1 ? ' just' : ''}${r.boss ? ' boss' : ''}${r.mirror ? ' mirror' : ''}`;
     el.innerHTML = '<div class="rung-pic"></div><div class="rung-plate"><small></small><b></b></div><div class="rung-stamp">勝</div>';
     setPic(el.querySelector('.rung-pic'), kindOf(r.pick).skin, portraitOf(r));
-    el.querySelector('small').textContent = (r.boss ? `FINAL · STAGE ${n + 1}` : r.mirror ? `STAGE 1 · ${r.name}` : `STAGE ${n + 1}`) + (n < solo.stage ? ' · BEATEN' : '');
+    el.querySelector('small').textContent = (r.boss ? `FINAL · STAGE ${n + 1}` : r.mirror ? `STAGE ${n + 1} · ${r.name}` : `STAGE ${n + 1}`) + (n < solo.stage ? ' · BEATEN' : '');
     el.querySelector('b').textContent = r.mirror ? 'MIRROR MATCH' : r.name;
     rungs.push(el);
   }

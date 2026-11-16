@@ -85,53 +85,53 @@ const clayTex = canvasTexture(256, 64, (g, w, h) => {
   for (let y = 0; y < h; y += 6) { g.fillStyle = y % 12 ? '#7b4f2c' : '#946239'; g.fillRect(0, y, w, 3); }
   speckle(g, w, h, 1500, ['#6e4526', '#a06c40']);
 }, 1);
-// Twisted straw rope: three strands spiralling round, each a bundle of fine fibres, with a darker
-// crease between strands. `along` says which texture axis runs along the rope (u for the ring's
-// torus pieces, v for the cylinders round the edge). One tile is one full twist, ~0.6m of rope.
-function ropeTexture(along) {
-  const N = 256, STRANDS = 3;
-  const c = document.createElement('canvas');
-  c.width = c.height = N;
-  const g = c.getContext('2d');
-  const img = g.createImageData(N, N);
-  const fibre = new Float32Array(N * 4);
-  for (let i = 0; i < fibre.length; i++) fibre[i] = Math.random();
-  const tone = [[205, 178, 104], [222, 197, 126], [186, 158, 88]];
+// Twisted straw rope: three strands spiralling round, each a bundle of fine fibres, with a deep
+// crease between strands. Drawn so it tiles seamlessly both ways (u runs along the rope, v round it),
+// as a colour map plus a matching height map for the relief. One tile is one full twist.
+function ropeMaps() {
+  const N = 512, STRANDS = 3;
+  const col = document.createElement('canvas'), hgt = document.createElement('canvas');
+  col.width = col.height = hgt.width = hgt.height = N;
+  const ci = col.getContext('2d').createImageData(N, N), hi = hgt.getContext('2d').createImageData(N, N);
+  // Fibres: a random brightness per fibre line (lines run along each strand, so they're indexed by l - a).
+  const fibre = Array.from({ length: STRANDS }, () => Float32Array.from({ length: N }, () => Math.random()));
+  const tone = [[214, 186, 112], [226, 201, 130], [196, 168, 96]];
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
-      const l = along === 'u' ? x : y, a = along === 'u' ? y : x;   // l: along the rope, a: around it
-      const t = ((l + a) / N) * STRANDS;                            // which strand, and where across it
+      const t = ((x + y) / N) * STRANDS;              // which strand, and where across it
       const k = Math.floor(t), f = t - k;
-      const strand = ((k % STRANDS) + STRANDS) % STRANDS;
-      const round = Math.sin(f * Math.PI);                          // each strand bulges, creased at its edges
-      const fib = fibre[((Math.round((l - a) * 1.6) % fibre.length) + fibre.length) % fibre.length]; // fibres run along the strand
-      const b = 0.38 + 0.62 * Math.pow(round, 0.6) * (0.78 + 0.32 * fib);
-      const [r, gg, bb] = tone[strand];
+      const strand = k % STRANDS;
+      const round = Math.sin(f * Math.PI);             // each strand bulges, creased at its edges
+      const line = (((x - y) * 2) % N + N) % N;        // fibres run along the strand, wrapping cleanly
+      const fib = fibre[strand][line] * 0.7 + fibre[strand][(line + 1) % N] * 0.3;
+      const h = Math.pow(round, 0.55) * (0.82 + 0.18 * fib);
+      const b = 0.34 + 0.66 * h;
+      const [r, g, bl] = tone[strand];
       const i = (y * N + x) * 4;
-      img.data[i] = r * b; img.data[i + 1] = gg * b; img.data[i + 2] = bb * b; img.data[i + 3] = 255;
+      ci.data[i] = r * b * (0.92 + 0.12 * fib); ci.data[i + 1] = g * b * (0.92 + 0.12 * fib); ci.data[i + 2] = bl * b; ci.data[i + 3] = 255;
+      const hv = 255 * h;
+      hi.data[i] = hi.data[i + 1] = hi.data[i + 2] = hv; hi.data[i + 3] = 255;
     }
   }
-  g.putImageData(img, 0, 0);
-  // The odd stray straw poking out.
-  g.strokeStyle = 'rgba(240,220,150,0.55)';
-  g.lineWidth = 1;
-  for (let i = 0; i < 40; i++) {
-    const x = Math.random() * N, y = Math.random() * N, d = 6 + Math.random() * 10;
-    g.beginPath(); g.moveTo(x, y); g.lineTo(x + d, y + d * (Math.random() - 0.3)); g.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
-  return tex;
+  col.getContext('2d').putImageData(ci, 0, 0);
+  hgt.getContext('2d').putImageData(hi, 0, 0);
+  const make = (c, srgb) => {
+    const t = new THREE.CanvasTexture(c);
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 16;
+    return t;
+  };
+  return { map: make(col, true), bump: make(hgt, false) };
 }
-const ROPE_TWIST = 0.6;   // metres of rope per tile
-function ropeMaterial(along, length) {
-  const map = ropeTexture(along);
-  const reps = Math.max(1, Math.round(length / ROPE_TWIST));
-  if (along === 'u') map.repeat.set(reps, 1); else map.repeat.set(1, reps);
-  // The same picture doubles as a bump map, so the strands and creases catch the light.
-  return new THREE.MeshStandardMaterial({ map, bumpMap: map, bumpScale: 1.6, roughness: 0.92 });
+const ROPE_TWIST = 0.5;   // metres of rope per full twist
+// A material for a closed rope `length` metres long whose geometry runs u along it (0..1 once round).
+function ropeMaterial(length) {
+  const { map, bump } = ropeMaps();
+  const reps = Math.max(1, Math.round(length / ROPE_TWIST));   // a whole number, so the ends meet without a seam
+  map.repeat.set(reps, 1);
+  bump.repeat.set(reps, 1);
+  return new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 3, roughness: 0.9 });
 }
 const floorTex = canvasTexture(512, 512, (g, w, h) => {
   for (let y = 0; y < h; y += 32) {
@@ -193,29 +193,32 @@ scene.add(arena);
     arena.add(step);
   }
 
-  // The ring: twenty straw bales, half-buried, with small gaps between them.
-  const BALES = 20;
-  const ringArc = (Math.PI * 2) / BALES;
-  const ringMat = ropeMaterial('u', (RING_R + 0.1) * ringArc * 0.94);
-  for (let i = 0; i < BALES; i++) {
-    const arc = ringArc;
-    const bale = new THREE.Mesh(new THREE.TorusGeometry(RING_R + 0.1, 0.1, 16, 24, arc * 0.94), ringMat);
-    bale.rotation.x = -Math.PI / 2;
-    bale.rotation.z = i * arc;
-    bale.position.y = PLATFORM_H + 0.02;
-    bale.castShadow = bale.receiveShadow = true;
-    arena.add(bale);
-  }
-  // The square of bales round the platform's edge.
-  const edgeMat = ropeMaterial('v', PLATFORM - 1.2);
-  for (let i = 0; i < 4; i++) {
-    const bale = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, PLATFORM - 1.2, 16, 1), edgeMat);
-    const a = (i * Math.PI) / 2;
-    bale.rotation.z = Math.PI / 2;
-    bale.rotation.y = a;
-    bale.position.set(Math.sin(a) * (PLATFORM / 2 - 0.45), PLATFORM_H + 0.03, Math.cos(a) * (PLATFORM / 2 - 0.45));
-    bale.castShadow = true;
-    arena.add(bale);
+  // The ring (tawara): one continuous twisted straw rope, half sunk into the clay.
+  const ROPE_R = 0.11;
+  const ringR = RING_R + 0.1;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(ringR, ROPE_R, 24, 480), ropeMaterial(2 * Math.PI * ringR));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = PLATFORM_H + 0.02;
+  ring.castShadow = ring.receiveShadow = true;
+  arena.add(ring);
+  // The square of rope round the platform's edge: one closed loop with rounded corners.
+  {
+    const half = PLATFORM / 2 - 0.45, corner = 0.35, pts = [];
+    for (let side = 0; side < 4; side++) {
+      const a = (side * Math.PI) / 2;
+      const cs = Math.cos(a), sn = Math.sin(a);
+      const rot = (x, z) => new THREE.Vector3(x * cs - z * sn, 0, x * sn + z * cs);
+      for (let i = 0; i < 24; i++) pts.push(rot(half, -(half - corner) + (2 * (half - corner) * i) / 24));          // a straight side
+      for (let i = 0; i < 8; i++) {                                                                                   // round the corner
+        const t = (i / 8) * (Math.PI / 2);
+        pts.push(rot(half - corner + Math.cos(t) * corner, half - corner + Math.sin(t) * corner));
+      }
+    }
+    const path = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
+    const edge = new THREE.Mesh(new THREE.TubeGeometry(path, 640, ROPE_R, 24, true), ropeMaterial(path.getLength()));
+    edge.position.y = PLATFORM_H + 0.03;
+    edge.castShadow = edge.receiveShadow = true;
+    arena.add(edge);
   }
   // A band of freshly brushed sand just outside the ring (the janome), where footprints would show.
   const janome = new THREE.Mesh(new THREE.RingGeometry(RING_R + 0.22, RING_R + 0.55, 96), new THREE.MeshStandardMaterial({ color: 0xe2c896, roughness: 1, transparent: true, opacity: 0.55 }));

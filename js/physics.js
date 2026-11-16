@@ -236,10 +236,10 @@ export function stepWrestler(w, it, opps, dt) {
       // staggers on over the edge and drops to the hall floor (gravity below takes it down).
       const edge = Math.max(Math.abs(w.pos.x), Math.abs(w.pos.y)) / r;    // square platform: distance to its edge along this line
       const target = w.state === 'down' ? Math.min(r, RING_R - 0.9) : Math.max(r, (PLATFORM / 2 + 0.45) / edge);
-      w.pos.multiplyScalar(1 + (target / r - 1) * Math.min(1, dt * (w.state === 'down' ? 6 : 2.2)));
+      w.pos.multiplyScalar(1 + (target / r - 1) * Math.min(1, dt * (w.state === 'down' ? 6 : 5)));
       if (w.state === 'out') {
         const face = Math.atan2(-w.pos.x, -w.pos.y);
-        w.heading = wrap(w.heading + wrap(face - w.heading) * Math.min(1, dt * 3));   // turning as it staggers
+        w.heading = wrap(w.heading + wrap(face - w.heading) * Math.min(1, dt * 9));   // turned to the ring, so it goes over backwards away from it
       }
     }
   }

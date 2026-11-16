@@ -88,13 +88,13 @@ function animate(w, t, dt) {
       // Tripped over the straw: a couple of staggering steps back, windmilling, then over onto its
       // back with a bump, drumsticks and wings flapping.
       const ft = clock.t - w.doneAt;
-      const tip = smoothstep(0.55, 1.05, ft);
-      const totter = ft < 0.6 ? Math.sin(ft * 15) * (1 - ft / 0.6) : 0;
-      pitch = 0.18 * Math.sin(Math.min(1, ft / 0.3) * Math.PI) + 0.12 * totter - 1.62 * tip;   // pitches forward to save itself, then goes over backwards
-      roll = 0.22 * totter * w.fallSign + 0.15 * w.fallSign * tip + (ft > 1.1 ? Math.sin(ft * 9) * 0.06 : 0);
-      if (ft > 1.0 && ft < 1.2) squash = 0.9;          // the bump as it lands
-      armPose = ft > 0.9 ? 'flap' : 'flail';
-      canWalk = ft < 0.6;                                // the feet keep stepping while it staggers
+      const tip = smoothstep(0.3, 0.62, ft);
+      const totter = ft < 0.35 ? Math.sin(ft * 18) * (1 - ft / 0.35) : 0;
+      pitch = 0.18 * Math.sin(Math.min(1, ft / 0.2) * Math.PI) + 0.12 * totter - 1.62 * tip;   // pitches forward to save itself, then goes over backwards
+      roll = 0.22 * totter * w.fallSign + 0.15 * w.fallSign * tip + (ft > 0.7 ? Math.sin(ft * 9) * 0.06 : 0);
+      if (ft > 0.6 && ft < 0.75) squash = 0.9;         // the bump as it lands
+      armPose = ft > 0.55 ? 'flap' : 'flail';
+      canWalk = ft < 0.35;                               // the feet keep stepping while it staggers
       break;
     }
   }
@@ -571,7 +571,7 @@ function enterDecision() {
   game.winner = game.decision.winner != null ? wrestlers[game.decision.winner] : null;
   game.phase = 'decision';
   game.phaseT = 0;
-  game.timeScale = 0.28;   // the slow, solemn replay of the moment it ended
+  game.timeScale = 0.6;    // a touch of slow motion as it ends
   sfx.crowd(0.45);
 }
 
@@ -637,7 +637,7 @@ function updateFlow(real) {
       if (!isGuest() && game.pending && clock.t - game.pending.at >= 0.15) decide();
       break;
     case 'decision':
-      if (game.phaseT > 1.4) { game.timeScale = 1; showDecision(); game.phase = 'screen'; game.phaseT = 0; }
+      if (game.phaseT > 1.0) { game.timeScale = 1; showDecision(); game.phase = 'screen'; game.phaseT = 0; }
       break;
     case 'screen':
       if (pressed.start && game.phaseT > 0.5 && !isGuest()) {

@@ -64,6 +64,6 @@ To check a pose close up, open `?pose=push` (or `brace`, `windup`, `charge`, `do
 
 "Roast chicken" (https://skfb.ly/6XHDu) by daidaiaoko is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/). The game stands it upright, rigs it and paints a mawashi onto it.
 
-Music: `assets/hitslab-japan-japanese-music.mp3` (menus) and `assets/sonican-taiko-energy.mp3` (fights).
+Music: `assets/music/hitslab-japan-japanese-music.mp3` (menus) and `assets/music/sonican-taiko-energy.mp3` (fights).
 
 Three.js is loaded from the jsDelivr CDN, PeerJS from unpkg.

@@ -2,8 +2,8 @@
 // each looping, with a short crossfade between them. Browsers only allow audio once you've
 // clicked or pressed a key, so the music waits for that.
 const TRACKS = {
-  menu: { src: 'assets/hitslab-japan-japanese-music.mp3', vol: 0.22 },
-  fight: { src: 'assets/sonican-taiko-energy.mp3', vol: 0.4 },
+  menu: { src: 'assets/music/hitslab-japan-japanese-music.mp3', vol: 0.22 },
+  fight: { src: 'assets/music/sonican-taiko-energy.mp3', vol: 0.4 },
 };
 const FADE = 1.2;   // seconds to fade a track fully in or out
 

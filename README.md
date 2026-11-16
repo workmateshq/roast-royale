@@ -31,11 +31,11 @@ Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 
 | Chicken | Cook | Style |
 | --- | --- | --- |
-| Chickozuna | Golden roast | The all-rounder |
-| Scorchmaster | Extra crispy (charcoal black) | Light and quick, but brittle |
-| Lightly Toasted | Barely crispy | Soft and forgiving |
-| Freezer Burn | Frozen raw chook | Heavy and stiff, slow to turn |
+| Rōsuto | Golden roast | The all-rounder |
+| Yakitori | Barely crispy | Soft and forgiving |
+| Reitō | Frozen raw chook | Heavy and stiff, slow to turn |
 | Katsudon | Battered | Heavy shove, crunchy armour |
+| Kogeta | Extra crispy (charcoal black) | Light and quick, but brittle |
 
 Win a round by pushing your rival out of the ring (Yorikiri), or draining their balance to 100% so they topple (Koppori). Stepping out on your own is Isamiashi. Best of three rounds.
 

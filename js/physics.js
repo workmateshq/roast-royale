@@ -42,6 +42,8 @@ export class Wrestler {
     this.staggerFor = 0;
   }
   get facing() { return faceVec(this.heading); }
+  // How big it is (the boss is twice the size): scales its body and its collision circle.
+  get size() { return this.kind.size || 1; }
   get done() { return this.state === 'down' || this.state === 'out'; }
   // Heavier while braced: knockback is divided by this.
   get mass() { return (this.state === 'brace' ? 3.2 : this.state === 'windup' ? 1.3 : 1) * this.kind.stats.mass; }
@@ -86,7 +88,7 @@ function resolvePush(w, opps) {
     const d = o.pos.clone().sub(w.pos);
     const l = d.length();
     d.divideScalar(l || 1);
-    if (!o.done && o.ghost <= 0 && l < BODY_R * 2 + 0.6 && f.dot(d) > 0.45 && l < dist) { opp = o; to = d; dist = l; }
+    if (!o.done && o.ghost <= 0 && l < BODY_R * (w.size + o.size) + 0.6 && f.dot(d) > 0.45 && l < dist) { opp = o; to = d; dist = l; }
   }
   if (opp) {
     // Mostly where you're facing, a little straight at them.
@@ -262,7 +264,8 @@ export function collide(a, b) {
   if (a.y < PLATFORM_H - 0.2 || b.y < PLATFORM_H - 0.2) return;
   const d = b.pos.clone().sub(a.pos);
   const dist = d.length();
-  if (dist >= BODY_R * 2 || dist < 1e-4) return;
+  const reach = BODY_R * (a.size + b.size);   // the two collision circles touching
+  if (dist >= reach || dist < 1e-4) return;
   if (a.ghost > 0 || b.ghost > 0) return;   // a wing dodge slips past
   const n = d.divideScalar(dist);
 
@@ -293,7 +296,7 @@ export function collide(a, b) {
   }
 
   // Separate them, and share out momentum along the line between them.
-  const overlap = BODY_R * 2 - a.pos.distanceTo(b.pos);
+  const overlap = reach - a.pos.distanceTo(b.pos);
   if (overlap > 0) {
     const ma = a.mass, mb = b.mass;
     a.pos.addScaledVector(n, (-overlap * mb) / (ma + mb));

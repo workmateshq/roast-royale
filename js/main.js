@@ -4,8 +4,8 @@ import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES,
 import { renderer, scene, camera, canvas, updateBanners, BANNER_R, setEnvironment } from './scene.js';
 import { emit, updateParticles, sfx, shake, view, updateFlashes, excite, setSfxMuted, setFlashes } from './effects.js';
 import { loadModel, poseChicken, debugRig, setSkin, renderPortraits } from './chicken.js';
-import { ROSTER, SLOTS } from './roster.js';
-import { buildRoster, setPortraits, renderSelect } from './select.js';
+import { ROSTER, SLOTS, BOSS } from './roster.js';
+import { buildRoster, setPortraits, renderSelect, SWATCH } from './select.js';
 import { buildSlots, renderSlots } from './lobby.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
@@ -22,7 +22,7 @@ const cam = { az: 0.6, dist: 13, el: 0.6, target: new THREE.Vector3(0, PLATFORM_
 function updateCamera(dt) {
   let wantDist = 12, wantEl = 0.42;
   const wantTarget = new THREE.Vector3(0, PLATFORM_H + 0.4, 0);
-  if (game.phase === 'title') {
+  if (game.phase === 'title' || game.phase === 'plan' || game.phase === 'continue') {
     cam.az += dt * 0.12;
   } else if (game.phase === 'select') {
     // Front-on to the contenders standing in a row in the ring (further back for three or four).
@@ -43,9 +43,11 @@ function updateCamera(dt) {
     const charging = actives().some((w) => w.state === 'windup' || w.state === 'charge');
     cam.chargeK += ((charging ? 1 : 0) - cam.chargeK) * Math.min(1, dt * 2.5);
     const shoving = sep < 2.1 && actives().some((w) => w.state === 'push' || w.state === 'brace');
-    wantDist = clamp(5.6 + sep * 0.85 + cam.chargeK * 2.2 - (shoving ? 0.8 : 0) - view.zoomPunch * 0.5, 5.2, 13);
-    wantEl = clamp(0.3 + camDrag.pitch, 0.08, 1.2);   // low, side-on, so you can see their legs working
-    wantTarget.set(mid.x, PLATFORM_H + 0.6, mid.y);
+    // A supersized rival: stand further back (and look a little higher) to fit it in.
+    const big = Math.max(...actives().map((w) => w.size)) - 1;
+    wantDist = clamp(5.6 + sep * 0.85 + cam.chargeK * 2.2 - (shoving ? 0.8 : 0) - view.zoomPunch * 0.5 + big * 2.2, 5.2, 13 + big * 2);
+    wantEl = clamp(0.3 + big * 0.08 + camDrag.pitch, 0.08, 1.2);   // low, side-on, so you can see their legs working
+    wantTarget.set(mid.x, PLATFORM_H + 0.6 + big * 0.5, mid.y);
   }
   view.zoomPunch = Math.max(0, view.zoomPunch - dt * 2);
   cam.dist += (wantDist - cam.dist) * Math.min(1, dt * 2.2);
@@ -132,6 +134,8 @@ function animate(w, t, dt) {
   a.crouch += (crouch - a.crouch) * Math.min(1, dt * 10); a.squash += (squash - a.squash) * k;
   v.root.position.set(w.pos.x, w.y, w.pos.y);
   v.root.rotation.y = w.heading;
+  v.root.scale.setScalar(w.size);
+  v.blob.scale.setScalar(w.size);
   // Top-heavy: when standing it balances leaning a little forward over its feet.
   v.body.rotation.set(a.pitch + (w.done ? 0 : 0.14), 0, a.roll);
   const onBack = Math.max(0, -a.pitch);   // how far it's gone over backwards
@@ -144,7 +148,7 @@ function animate(w, t, dt) {
   // Freshly roasted: a wisp of steam now and then.
   if ((v.steamIn = (v.steamIn ?? rand(0, 0.4)) - dt) <= 0) {
     v.steamIn = rand(0.25, 0.45);
-    emit(new THREE.Vector3(w.pos.x + rand(-0.2, 0.2), w.y + 0.75, w.pos.y + rand(-0.2, 0.2)), 1,
+    emit(new THREE.Vector3(w.pos.x + rand(-0.2, 0.2), w.y + 0.75 * w.size, w.pos.y + rand(-0.2, 0.2)), 1,
       { colour: 0xffffff, speed: 0.08, up: 0.3, life: 2.2, grav: -0.05, drag: 0.3, size: 0.22, grow: 0.28, alpha: 0.13 });
   }
 }
@@ -212,7 +216,7 @@ const brain = new Brain(cpu, player);
 const zeros = () => SLOTS.map(() => 0);
 const game = { phase: 'title', bout: 1, wins: zeros(), results: [], phaseT: 0, realT: 0, timeScale: 1, pending: null, winner: null, cues: [], rematch: false, lastNokotta: 0, decision: null };
 // slot: the wrestler this browser controls; active: the slots in the ring, in order; picks: each slot's chicken.
-const match = { mode: 'cpu', slot: 0, active: [0, 1], picks: [0, 1, 2, 3], room: null };
+const match = { mode: 'solo', slot: 0, active: [0, 1], picks: [0, 1, 2, 3], room: null };
 const me = () => wrestlers[match.slot];
 const actives = () => match.active.map((s) => wrestlers[s]);
 const slotOf = (w) => wrestlers.indexOf(w);
@@ -242,7 +246,7 @@ const label = (w) => (w === me() ? 'YOU' : nameOf(w));
 function title(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
 // 'You are the winner', 'Kogeta is the champion'
 const winnerLine = (w, what) => (w === me() ? `You are the ${what}` : `${title(nameOf(w))} is the ${what}`);
-// Online, everyone is just P1-P4 (their slot); against the house it's YOU and CPU.
+// Online, everyone is just P1-P4 (their slot); in the solo tournament it's YOU and CPU.
 const pTag = (slot) => `P${slot + 1}`;
 const who = (w) => (match.mode === 'online' ? pTag(slotOf(w)) + (w === me() ? ' · YOU' : '') : w === me() ? 'YOU' : match.mode === 'practice' ? 'DUMMY' : 'CPU');
 
@@ -253,11 +257,13 @@ function setActive(slots) {
   layoutHud();
 }
 
-// picks: a chicken (roster index) for each slot.
+// picks: a chicken (roster index, or BOSS_PICK for Megarōsuto) for each slot.
+const BOSS_PICK = -1;
+const kindOf = (p) => (p === BOSS_PICK ? BOSS : ROSTER[p % ROSTER.length]);
 function setKinds(picks) {
   picks.forEach((p, s) => { if (s < wrestlers.length && Number.isInteger(p)) match.picks[s] = p; });
   wrestlers.forEach((w, s) => {
-    w.kind = ROSTER[match.picks[s] % ROSTER.length];
+    w.kind = kindOf(match.picks[s]);
     setSkin(w.vis, w.kind.skin);
     $('name-' + s).textContent = w.kind.name;
     $('rank-' + s).textContent = `${who(w)} · ${w.kind.rank}`;
@@ -266,15 +272,19 @@ function setKinds(picks) {
 setActive([0, 1]);
 setKinds([0, 1, 2, 3]);
 
+let portraits = [];   // each roster chicken's portrait (an image URL), once the model's loaded
 loadModel((text) => { $('load-note').textContent = text; }, () => {
-  setPortraits(renderPortraits(ROSTER.map((c) => c.skin)));
+  portraits = renderPortraits(ROSTER.map((c) => c.skin));
+  setPortraits(portraits);
+  if (game.phase === 'plan') renderPlan(false);
 });
 $('load-note').textContent = 'Preheating the oven...';
 
 // =====================================================================================
-// Screens: title (the home lobby: create or join a ring, or play the CPU), select (choose a chicken)
+// Screens: title (the home lobby: create or join a ring, or go solo), select (choose a chicken),
+// plan (the solo tournament's battle plan), decision (verdicts, the champion, continue?)
 // =====================================================================================
-const SCREENS = ['title', 'select', 'decision'];
+const SCREENS = ['title', 'select', 'plan', 'decision'];
 function showScreen(id) {
   SCREENS.forEach((s) => { $(s).hidden = s !== id; });
   $('hud').hidden = !!id;
@@ -285,11 +295,12 @@ function showScreen(id) {
 function goTitle(note = '') {
   if ((match.mode === 'online' || online.connecting) && online.net) online.net.leave();
   Object.assign(online, { players: [], hostId: null, link: false, connecting: false });
-  match.mode = 'cpu';
+  match.mode = 'solo';
   match.slot = 0;
   match.room = null;
   setScenery(false);
   setActive([0, 1]);
+  if (match.picks.includes(BOSS_PICK)) setKinds([0, 1, 2, 3]);   // Megarōsuto stays on the battle plan
   game.phase = 'title';
   game.timeScale = 1;
   showScreen('title');
@@ -345,9 +356,9 @@ function renderLobby() {
   // The host sees Start once a mate's in; until then (and for everyone else) a line under the slots says what's next.
   $('start-btn').hidden = !canBegin();
   $('start-btn').querySelector('b').textContent = `Start game with ${n} players`;
-  $('lobby-wait').textContent = online.net.isHost ? 'Waiting for mates to join… or take on the CPU while you wait.' : `Waiting for ${host ? pTag(host.slot - 1) : 'the host'} to start…`;
-  // On your own in a ring, you can play the CPU (you'll come back to the ring's lobby afterwards).
-  $('room-cpu').hidden = n !== 1;
+  $('lobby-wait').textContent = online.net.isHost ? 'Waiting for mates to join… or climb the solo tournament instead.' : `Waiting for ${host ? pTag(host.slot - 1) : 'the host'} to start…`;
+  // On your own in a ring, you can go solo instead (leaving the ring).
+  $('room-solo').hidden = n !== 1;
 }
 function beginRoom() {
   if (!canBegin()) return;
@@ -360,7 +371,7 @@ buildSlots();
 function basePath() { return location.pathname.replace(/[^/]*$/, ''); }
 
 // ---------- Choose your chicken ----------
-const sel = { i: 0, locked: false, cpuI: 1, cpuLocked: false, cpuT: 0, startIn: 0 };
+const sel = { i: 0, locked: false };
 // Clicking a chicken chooses it; READY (or Enter) confirms. Changing your mind un-readies you.
 buildRoster((i) => {
   if (game.phase !== 'select' || i === sel.i) return;
@@ -371,7 +382,7 @@ buildRoster((i) => {
   drawSelect();
 });
 $('select-back').addEventListener('click', () => { if (game.phase === 'select') backFromSelect(); });
-// Online: everyone back to the lobby, still in the ring. Against the CPU: home.
+// Online: everyone back to the lobby, still in the ring. Solo or practice: home.
 function backFromSelect() {
   if (match.mode === 'online' && online.net) online.net.send({ type: 'lobby' });
   else goTitle();
@@ -383,12 +394,11 @@ function goSelect() {
   setScenery(false);
   game.phase = 'select';
   game.phaseT = 0;
-  Object.assign(sel, { locked: false, cpuLocked: false, cpuT: 0, startIn: 0 });
-  if (match.mode === 'cpu') sel.cpuI = 1 + ((Math.random() * (ROSTER.length - 1)) | 0);
+  sel.locked = false;
   showScreen('select');
   $('room-bar').hidden = match.mode !== 'online';
+  $('select-back').textContent = match.mode === 'online' ? '← Back to lobby' : '← Back home';
   $('select-code').textContent = match.room || '';
-  if (match.mode === 'cpu') setActive([0, 1]);
   game.winner = null;
   game.results = [];
   heard = null;   // nothing's announced for the chickens already standing there
@@ -420,7 +430,7 @@ function lockIn() {
   sel.locked = true;
   sfx.taiko();
   if (match.mode === 'practice') { startPractice(); return; }
-  if (match.mode === 'cpu') { sel.cpuT = 0; if (sel.cpuLocked) sel.startIn = 1.3; }
+  if (match.mode === 'solo') { startSolo(); return; }
   sendPick();
   drawSelect();
 }
@@ -458,10 +468,8 @@ function drawSelect() {
   if (game.phase !== 'select') return;   // (readying up can start the tournament before this redraw)
   const mine = { slot: match.slot, i: sel.i, locked: sel.locked, tag: 'YOU' };
   let list;
-  if (match.mode === 'cpu') {
-    list = [mine, { slot: 1, i: sel.cpuI, locked: sel.cpuLocked, tag: 'CPU' }];
-  } else if (match.mode === 'practice') {
-    list = [mine];   // just you: the training dummy's waiting on the clifftop
+  if (match.mode === 'solo' || match.mode === 'practice') {
+    list = [mine];   // just you: your rivals wait on the battle plan (or the training dummy on the clifftop)
   } else {
     const ps = online.players;
     Object.assign(mine, { tag: `${pTag(match.slot)} · YOU`, badge: pTag(match.slot) });
@@ -500,29 +508,8 @@ function drawSelect() {
   }
 }
 
-function updateSelect(real) {
-  if (match.mode !== 'cpu') return;
-  // The CPU waits on its rival until you've chosen, then locks in (picking someone else if you took it).
-  if (!sel.locked) return;
-  if (!sel.cpuLocked) {
-    sel.cpuT += real;
-    if (sel.cpuT > 0.7) {
-      if (sel.cpuI === sel.i) {
-        const others = ROSTER.map((_, i) => i).filter((i) => i !== sel.i);
-        sel.cpuI = others[(Math.random() * others.length) | 0];
-      }
-      sel.cpuLocked = true;
-      sel.startIn = 1.3;
-      sfx.taiko(0.05);
-      drawSelect();
-    }
-    return;
-  }
-  if ((sel.startIn -= real) <= 0) beginTournament();
-}
-
 // =====================================================================================
-// The tournament: best of three rounds, then the champion. The CPU game and the online host decide
+// The tournament: best of three rounds, then the champion. The solo game and the online host decide
 // everything; an online guest is told what happened ('flow') and draws the host's fight ('snap').
 // =====================================================================================
 const FLAVOUR = {
@@ -534,7 +521,8 @@ const pick = (a) => a[(Math.random() * a.length) | 0];
 const flow = (msg) => { if (match.mode === 'online' && online.net && online.net.isHost) online.net.send({ type: 'flow', ...msg }); };
 
 function boutTitle() {
-  return `Round ${game.bout}${game.rematch ? ' (Rematch)' : ''}`;
+  const round = `Round ${game.bout}${game.rematch ? ' (Rematch)' : ''}`;
+  return match.mode === 'solo' ? `Stage ${solo.stage + 1} of ${STAGES} · ${round}` : round;
 }
 
 function beginTournament() {
@@ -563,7 +551,7 @@ function startBout() {
   });
   online.remote.forEach((r) => Object.assign(r, remoteIdle()));
   brain.reset();
-  brain.level = clamp(0.55 + 0.22 * (game.bout - 1), 0, 1);
+  brain.level = match.mode === 'solo' ? soloLevel() : clamp(0.55 + 0.22 * (game.bout - 1), 0, 1);
   game.phase = 'ready';
   game.phaseT = 0;
   game.pending = null;
@@ -576,7 +564,7 @@ function startBout() {
     emit(new THREE.Vector3(w.pos.x, PLATFORM_H + 1.1, w.pos.y), 40, { colour: 0xffffff, speed: 1.2, up: 2.4, life: 1.4, grav: 5, drag: 0.6, size: 0.045, dir });
   };
   game.cues = [
-    { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`<span class="jp">${['一', '二', '三', '四', '五'][Math.min(game.bout, 5) - 1]}番</span>ROUND ${game.bout}<small>${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
+    { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`<span class="jp">${['一', '二', '三', '四', '五'][Math.min(game.bout, 5) - 1]}番</span>ROUND ${game.bout}<small>${match.mode === 'solo' ? `STAGE ${solo.stage + 1} · ` : ''}${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
     { at: 1.0, fn: () => { actives().forEach(throwSalt); gyoji('The ring is purified with salt.', 4); } },
     { at: 2.0, fn: () => { callout('<span class="jp">はっけよい</span>HAKKEYOI!', 1.0); sfx.taiko(); say('hakkeyoi', { interrupt: true }); } },
     { at: 3.1, fn: () => { excite(5); callout('<span class="jp">残った</span>NOKOTTA!', 0.9); say('nokotta', { interrupt: true }); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
@@ -741,6 +729,7 @@ const waitCta = () => (isGuest() ? (online.players.length > 2 ? 'WAITING FOR THE
 const KANJI = { 'YORIKIRI!': '寄り切り', 'KOPPORI!': 'こっぽり', 'ISAMIASHI!': '勇み足', 'MONO-II!': '物言い', 'YŪSHŌ': '優勝' };
 function showDecision() {
   const d = game.decision;
+  $('decision').classList.remove('continue');
   $('dec-gloss').textContent = d.gloss;
   $('dec-kimarite').textContent = d.kimarite;
   $('dec-kanji').textContent = KANJI[d.kimarite] || '';
@@ -756,6 +745,7 @@ function showDecision() {
 const ANY_KEY = matchMedia('(hover: none) and (pointer: coarse)').matches ? 'TAP' : 'PRESS ANY KEY';
 const CHAMPION_WAIT = 10;   // seconds on the champion screen
 function showChampion() {
+  $('decision').classList.remove('continue');
   const champ = champion();
   game.winner = champ;
   const youWon = champ === me();
@@ -764,7 +754,9 @@ function showChampion() {
   $('dec-kanji').textContent = KANJI['YŪSHŌ'];
   say('YŪSHŌ', { interrupt: true });
   $('dec-winner').textContent = winnerLine(champ, 'champion');
-  $('dec-flavour').textContent = youWon
+  $('dec-flavour').textContent = youWon && match.mode === 'solo'
+    ? 'Megarōsuto is carved. Eight bouts, eight roasts: the Emperor\'s Cup is yours, with gravy.'
+    : youWon
     ? 'The Emperor\'s Cup is presented, with gravy. A new yokozuna of the rotisserie is crowned.'
     : `${champ.kind.name} takes the Emperor's Cup, as is tradition. Return when you are better seasoned.`;
   $('dec-tally').textContent = tally();
@@ -775,12 +767,133 @@ function showChampion() {
   applause();
 }
 
+// =====================================================================================
+// The solo tournament: eight stages up the banzuke. A mirror match against your own chicken, the six
+// other chickens in a random order, then Megarōsuto. Each stage is best of three; the battle plan
+// shows where you are between stages. Lose a stage and you can continue (fight it again) within ten
+// seconds, or it's back home.
+// =====================================================================================
+const STAGES = 8;
+const PLAN_WAIT = 3.5;        // seconds on the battle plan before the stage starts by itself
+const CONTINUE_WAIT = 10;     // seconds to decide to continue
+const solo = { stage: 0, order: [], climb: false, said: false };
+// The rival for stage n (0-based): { pick, name, mirror, boss }.
+function stageRival(n) {
+  if (n === 0) return { pick: sel.i, name: ROSTER[sel.i].name, mirror: true };
+  if (n === STAGES - 1) return { pick: BOSS_PICK, name: BOSS.name, boss: true };
+  const i = solo.order[n - 1];
+  return { pick: i, name: ROSTER[i].name };
+}
+// The CPU gets sharper every stage: from a gentle 0.35 to full strength by stage 7 (and the boss).
+const soloLevel = () => Math.min(1, 0.35 + (0.65 * solo.stage) / (STAGES - 2));
+function shuffleRivals() {
+  const others = ROSTER.map((_, i) => i).filter((i) => i !== sel.i);
+  for (let k = others.length - 1; k > 0; k--) { const j = (Math.random() * (k + 1)) | 0; [others[k], others[j]] = [others[j], others[k]]; }
+  solo.order = others;
+}
+function startSolo() {
+  shuffleRivals();
+  solo.stage = 0;
+  showPlan(false);
+}
+// The battle plan. climb: you've just won the stage below, so your portrait steps up a rung.
+function showPlan(climb) {
+  setScenery(false);
+  Object.assign(game, { phase: 'plan', phaseT: 0, timeScale: 1, winner: null, cues: [] });
+  Object.assign(solo, { climb, said: false });
+  showScreen('plan');
+  // You and your next rival stand in the ring behind the plan, the camera slowly circling.
+  setActive([0, 1]);
+  setKinds([sel.i, stageRival(solo.stage).pick]);
+  const gap = 1.1 + 0.5 * Math.max(player.size, cpu.size);
+  player.reset(-gap, Math.PI / 2);
+  cpu.reset(gap, -Math.PI / 2);
+  player.fallSign = cpu.fallSign = 1;
+  renderPlan(climb);
+}
+const portraitOf = (r) => portraits[r.boss ? Math.max(0, ROSTER.findIndex((c) => c.skin === BOSS.skin)) : r.pick];
+function setPic(el, skin, url) {
+  el.style.setProperty('--swatch', SWATCH[skin]);
+  el.style.backgroundImage = url ? `url(${url})` : '';
+}
+function renderPlan(climb) {
+  const ladder = $('ladder');
+  const rungs = [];
+  for (let n = STAGES - 1; n >= 0; n--) {
+    const r = stageRival(n);
+    const el = document.createElement('div');
+    el.className = `rung${n < solo.stage ? ' beaten' : ''}${n === solo.stage ? ' current' : ''}${climb && n === solo.stage - 1 ? ' just' : ''}${r.boss ? ' boss' : ''}${r.mirror ? ' mirror' : ''}`;
+    el.innerHTML = '<div class="rung-pic"></div><div class="rung-plate"><small></small><b></b></div><div class="rung-stamp">勝</div>';
+    setPic(el.querySelector('.rung-pic'), kindOf(r.pick).skin, portraitOf(r));
+    el.querySelector('small').textContent = (r.boss ? `FINAL · STAGE ${n + 1}` : r.mirror ? `STAGE 1 · ${r.name}` : `STAGE ${n + 1}`) + (n < solo.stage ? ' · BEATEN' : '');
+    el.querySelector('b').textContent = r.mirror ? 'MIRROR MATCH' : r.name;
+    rungs.push(el);
+  }
+  ladder.replaceChildren(...rungs);
+  // You, beside the rung you're on (from the bottom). Climbing: start a rung down, then step up.
+  const you = $('plan-you');
+  setPic(you.querySelector('.rung-pic'), ROSTER[sel.i].skin, portraits[sel.i]);
+  you.querySelector('small').textContent = ROSTER[sel.i].name;
+  const at = (n) => you.style.setProperty('--at', String(STAGES - 1 - n));
+  clearTimeout(renderPlan.step);
+  you.classList.remove('moving');
+  at(climb ? solo.stage - 1 : solo.stage);
+  if (climb) {
+    void you.offsetWidth;   // (so the step up animates from the rung below)
+    renderPlan.step = setTimeout(() => { you.classList.add('moving'); at(solo.stage); sfx.taiko(); }, 450);
+  }
+  const r = stageRival(solo.stage), k = kindOf(r.pick);
+  $('plan-next').innerHTML = '';
+  const line = document.createElement('span');
+  line.textContent = `STAGE ${solo.stage + 1} OF ${STAGES} · VS ${r.mirror ? `YOUR MIRROR, ${r.name}` : r.name}`;
+  const sub = document.createElement('small');
+  sub.textContent = `${k.cook.toUpperCase()} · ${k.rank}`;
+  $('plan-next').append(line, sub);
+  $('plan-cta').textContent = `${ANY_KEY} TO FIGHT`;
+}
+function updatePlan() {
+  // The announcer calls your next rival (once you've stepped up).
+  if (!solo.said && game.phaseT >= (solo.climb ? 1.4 : 0.4)) { solo.said = true; say(voiceKey(stageRival(solo.stage).name), { interrupt: true }); }
+  if ((pressed.start && game.phaseT > 0.6) || game.phaseT >= PLAN_WAIT + (solo.climb ? 1 : 0)) startStage();
+}
+function startStage() {
+  $('decision').classList.remove('continue');
+  setActive([0, 1]);
+  setKinds([sel.i, stageRival(solo.stage).pick]);
+  beginTournament();
+}
+// A stage is decided: on up the plan, the Emperor's Cup, or continue?
+function soloStageOver() {
+  if (game.wins[match.slot] >= WINS_NEEDED) {
+    if (solo.stage === STAGES - 1) showChampion();
+    else { solo.stage++; showPlan(true); }
+  } else showContinue();
+}
+function showContinue() {
+  const r = stageRival(solo.stage);
+  $('decision').classList.add('continue');
+  $('dec-gloss').textContent = `STAGE ${solo.stage + 1} OF ${STAGES} · DEFEATED BY ${r.mirror ? 'YOUR OWN REFLECTION' : r.name}`;
+  $('dec-kanji').textContent = '再挑戦';
+  $('dec-kimarite').textContent = 'CONTINUE?';
+  $('dec-winner').textContent = String(CONTINUE_WAIT);
+  $('dec-flavour').textContent = 'Re-baste, regroup, and fight the stage again from the first round.';
+  $('dec-tally').textContent = tally();
+  $('dec-cta').textContent = `${ANY_KEY} TO TRY AGAIN`;
+  showScreen('decision');
+  Object.assign(game, { phase: 'continue', phaseT: 0, timeScale: 1 });
+  sfx.taiko();
+}
+// For testing: roast.soloJump(8) goes straight to stage 8's battle plan (Megarōsuto).
+function soloJump(n) {
+  match.mode = 'solo';
+  if (solo.order.length !== ROSTER.length - 1 || solo.order.includes(sel.i)) shuffleRivals();
+  solo.stage = clamp(Math.round(n), 1, STAGES) - 1;
+  showPlan(false);
+}
+
 function updateFlow(real) {
   game.phaseT += real;
   switch (game.phase) {
-    case 'select':
-      updateSelect(real);
-      break;
     case 'ready':
     case 'fight':
       for (const c of game.cues) if (!c.done && game.phaseT >= c.at) { c.done = true; c.fn(); }
@@ -796,15 +909,29 @@ function updateFlow(real) {
       break;
     case 'screen':
       if (pressed.start && game.phaseT > 0.5 && !isGuest()) {
-        if (decided()) { flow({ kind: 'champion', wins: game.wins, results: game.results }); showChampion(); }
+        if (match.mode === 'solo' && decided()) soloStageOver();
+        else if (decided()) { flow({ kind: 'champion', wins: game.wins, results: game.results }); showChampion(); }
         else { if (!game.rematch) game.bout++; startBout(); }
       }
       break;
     case 'champion': {
-      // Back to choosing a chicken after 10 seconds (or sooner, with Enter).
+      // Back to choosing a chicken (solo: home) after 10 seconds (or sooner, with Enter).
       const left = Math.max(0, Math.ceil(CHAMPION_WAIT - game.phaseT));
-      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `${ANY_KEY} TO CHOOSE AGAIN · ${left}`;
-      if (!isGuest() && ((pressed.start && game.phaseT > 0.5) || game.phaseT >= CHAMPION_WAIT)) { flow({ kind: 'select' }); goSelect(); }
+      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `${ANY_KEY} TO ${match.mode === 'solo' ? 'RETURN HOME' : 'CHOOSE AGAIN'} · ${left}`;
+      if (!isGuest() && ((pressed.start && game.phaseT > 0.5) || game.phaseT >= CHAMPION_WAIT)) {
+        if (match.mode === 'solo') goTitle();
+        else { flow({ kind: 'select' }); goSelect(); }
+      }
+    }
+      break;
+    case 'plan':
+      updatePlan();
+      break;
+    case 'continue': {
+      const left = Math.max(0, Math.ceil(CONTINUE_WAIT - game.phaseT));
+      $('dec-winner').textContent = String(left);
+      if (pressed.start && game.phaseT > 0.6) { sfx.taiko(); startStage(); }
+      else if (game.phaseT >= CONTINUE_WAIT) goTitle();
     }
       break;
   }
@@ -974,24 +1101,24 @@ function sendSnap(real) {
 // =====================================================================================
 // Menus: keyboard, mouse and gamepad
 // =====================================================================================
-function chooseCpu() {
+function chooseSolo() {
   if (inRoom() && online.players.length > 1) return;
   if (inRoom()) { online.net.leave(); match.room = null; history.replaceState(null, '', basePath()); }
   if (online.connecting) goTitle();   // (calls off a ring still connecting)
   sfx.clack();
   preloadVoices();
-  match.mode = 'cpu';
+  match.mode = 'solo';
   match.slot = 0;
   goSelect();
 }
-// Enter (or a gamepad's Start) on the home screen: the CPU, or in a ring, the host's Start.
+// Enter (or a gamepad's Start) on the home screen: the solo tournament, or in a ring, the host's Start.
 function homeStart() {
   if (inRoom()) beginRoom();
-  else if (!online.connecting) chooseCpu();
+  else if (!online.connecting) chooseSolo();
 }
-$('mode-cpu').addEventListener('click', chooseCpu);
+$('mode-solo').addEventListener('click', chooseSolo);
 $('mode-practice').addEventListener('click', choosePractice);
-$('room-cpu').addEventListener('click', chooseCpu);
+$('room-solo').addEventListener('click', chooseSolo);
 $('create-btn').addEventListener('click', () => { sfx.clack(); connect('Building the ring...', false, (ack) => online.net.create(ack)); });
 $('join-btn').addEventListener('click', () => {
   const code = $('code-input').value.trim().toUpperCase();
@@ -1004,13 +1131,12 @@ $('start-btn').addEventListener('click', beginRoom);
 $('home-btn').addEventListener('click', () => { sfx.clack(); goTitle(); });
 
 // ---------- In the HUD: home, music and sound effects ----------
-// Home ends the match: online, everyone back to the lobby (still in the ring); against the CPU, back to
-// choosing chickens; from practice, back to the home screen.
+// Home ends the match: online, everyone back to the lobby (still in the ring); from the solo
+// tournament or practice, back to the home screen.
 $('game-home').addEventListener('click', (e) => {
   if (e.detail) e.currentTarget.blur();
   if (match.mode === 'online' && online.net) online.net.send({ type: 'home' });
-  else if (match.mode === 'practice') goTitle();
-  else goSelect();
+  else goTitle();
 });
 // Music, and sound effects (incl. the announcer and the crowd): each player's choice, remembered on their device.
 const soundPrefs = (() => {
@@ -1049,7 +1175,7 @@ addEventListener('keydown', (e) => {
   // Menus handle Enter themselves (so choosing a mode doesn't also lock in a chicken).
   if (k === 'Enter' && ['title', 'select'].includes(game.phase)) pressed.start = false;   // (input.js's listener runs first)
   // On the result screens, any key moves on (not a key still held down from the fight).
-  if ((game.phase === 'screen' || game.phase === 'champion') && !e.repeat && !['Shift', 'Control', 'Alt', 'Meta'].includes(k)) pressed.start = true;
+  if (['screen', 'champion', 'plan', 'continue'].includes(game.phase) && !e.repeat && !['Shift', 'Control', 'Alt', 'Meta'].includes(k)) pressed.start = true;
   if (game.phase === 'title') {
     // (Enter on a focused button just presses that button.)
     if (k === 'Enter' && !e.repeat && !(e.target && e.target.tagName === 'BUTTON')) homeStart();
@@ -1181,5 +1307,5 @@ function tick(now, draw) {
 }
 requestAnimationFrame(frame);
 
-// For testing in the console: window.roast.game, .wrestlers, .player (blue), .cpu (red)
-window.roast = { musicState, game, wrestlers, player, cpu, brain, match, online, practice, startBout, beginTournament, debugRig };
+// For testing in the console: window.roast.game, .wrestlers, .player (blue), .cpu (red), .soloJump(n) (solo stage n)
+window.roast = { musicState, game, wrestlers, player, cpu, brain, match, online, practice, solo, soloJump, startBout, beginTournament, debugRig };

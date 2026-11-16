@@ -55,14 +55,14 @@
         <div class="or">or join your mate's ring</div>
         <div class="join-row"><input id="code-input" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" aria-label="Ring code"><button type="button" class="mode-btn small" id="join-btn"><b>JOIN</b></button></div>
         <div class="mode-row">
-          <button type="button" class="mode-btn cpu-btn" id="mode-cpu"><b>VERSUS CPU</b><span>Take on the house champion</span></button>
+          <button type="button" class="mode-btn cpu-btn" id="mode-solo"><b>SOLO TOURNAMENT</b><span>Climb the banzuke: 8 bouts to the Emperor's Cup</span></button>
           <button type="button" class="mode-btn cpu-btn" id="mode-practice"><b>PRACTICE</b><span>Train on a clifftop, no pressure</span></button>
         </div>
       </div>
       <div class="lobby-view" id="room-view" hidden>
         <div class="room-bar"><span>RING CODE</span><code id="room-code">----</code><button type="button" class="mode-btn small" id="copy-link"><b>COPY LINK</b></button></div>
         <button type="button" class="mode-btn primary" id="start-btn" hidden><b>Start game</b></button>
-        <button type="button" class="mode-btn cpu-btn" id="room-cpu" hidden><b>VERSUS CPU</b><span>No mates yet? Take on the house champion</span></button>
+        <button type="button" class="mode-btn cpu-btn" id="room-solo" hidden><b>SOLO TOURNAMENT</b><span>No mates yet? Climb the banzuke on your own</span></button>
         <button type="button" class="link-btn outline" id="home-btn">Create or join a new room</button>
       </div>
       <p class="status" id="online-status" role="status"></p>
@@ -81,6 +81,17 @@
       <button type="button" class="mode-btn ready-btn" id="ready-btn"><b>READY...?</b></button>
       <button type="button" class="link-btn" id="select-back">← Back to lobby</button>
     </div>
+  </div>
+
+  <div id="plan" class="screen plan" hidden>
+    <div class="kanji">番 付</div>
+    <h2 class="select-title">BATTLE PLAN</h2>
+    <div class="ladder-wrap">
+      <div class="plan-you" id="plan-you"><div class="rung-pic"></div><div class="you-plate"><b>YOU</b><small></small></div></div>
+      <div class="ladder" id="ladder"></div>
+    </div>
+    <div class="plan-next" id="plan-next"></div>
+    <div class="cta" id="plan-cta">PRESS ANY KEY TO FIGHT</div>
   </div>
 
   <div id="decision" class="screen" hidden>

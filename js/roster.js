@@ -41,6 +41,14 @@ export const ROSTER = [
   },
 ];
 
+// The solo tournament's final boss: Rōsuto, supersized. Not in the selectable roster. size scales
+// its body (and collision circle) in the ring.
+export const BOSS = {
+  id: 'mega', name: 'MEGARŌSUTO', rank: 'YOKOZUNA', cook: 'Golden Roast, Supersized', skin: 0, size: 2,
+  blurb: 'Twice the bird, twice the basting. Guardian of the Emperor\'s Cup.',
+  stats: { mass: 2.2, speed: 0.78, turn: 0.7, take: 0.55, power: 1.6 },
+};
+
 // The four bars shown on the select screen, each 0..1.
 export function statBars(c) {
   const s = c.stats;

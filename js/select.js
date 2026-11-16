@@ -4,7 +4,7 @@ import { ROSTER, SLOTS, statBars } from './roster.js';
 
 const $ = (id) => document.getElementById(id);
 // Flat colours for the tiles until the portraits have been rendered.
-const SWATCH = ['#b8732a', '#c4552a', '#c9955a', '#f2c4bd', '#d9902f', '#5f7a52', '#9fb6c4'];
+export const SWATCH = ['#b8732a', '#c4552a', '#c9955a', '#f2c4bd', '#d9902f', '#5f7a52', '#9fb6c4'];
 let tiles = [];
 let panels = [];
 

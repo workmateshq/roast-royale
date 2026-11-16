@@ -38,7 +38,7 @@ function tryAutoplay(dt) {
 let musicMuted = false;
 export function setMusicMuted(m) { musicMuted = m; }
 
-const MENU_PHASES = ['title', 'select', 'practice'];   // title is the home lobby; practice is out on the clifftop, to the gentle track
+const MENU_PHASES = ['title', 'select', 'plan', 'practice'];   // title is the home lobby; plan the solo battle plan; practice is out on the clifftop, to the gentle track
 
 // Call every frame with the game phase and the real time passed.
 export function updateMusic(phase, dt) {

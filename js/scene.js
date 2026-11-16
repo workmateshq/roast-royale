@@ -85,13 +85,54 @@ const clayTex = canvasTexture(256, 64, (g, w, h) => {
   for (let y = 0; y < h; y += 6) { g.fillStyle = y % 12 ? '#7b4f2c' : '#946239'; g.fillRect(0, y, w, 3); }
   speckle(g, w, h, 1500, ['#6e4526', '#a06c40']);
 }, 1);
-const strawTex = canvasTexture(256, 32, (g, w, h) => {
-  g.fillStyle = '#c8b06a';
-  g.fillRect(0, 0, w, h);
-  for (let x = 0; x < w; x += 2) { g.fillStyle = Math.random() < 0.5 ? '#b39a55' : '#ddc684'; g.fillRect(x, 0, 1, h); }
-  g.fillStyle = 'rgba(80,60,20,0.55)';
-  for (let x = 0; x < w; x += 64) g.fillRect(x, 0, 4, h);   // the rope bindings
-}, 1);
+// Twisted straw rope: three strands spiralling round, each a bundle of fine fibres, with a darker
+// crease between strands. `along` says which texture axis runs along the rope (u for the ring's
+// torus pieces, v for the cylinders round the edge). One tile is one full twist, ~0.6m of rope.
+function ropeTexture(along) {
+  const N = 256, STRANDS = 3;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  const img = g.createImageData(N, N);
+  const fibre = new Float32Array(N * 4);
+  for (let i = 0; i < fibre.length; i++) fibre[i] = Math.random();
+  const tone = [[205, 178, 104], [222, 197, 126], [186, 158, 88]];
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const l = along === 'u' ? x : y, a = along === 'u' ? y : x;   // l: along the rope, a: around it
+      const t = ((l + a) / N) * STRANDS;                            // which strand, and where across it
+      const k = Math.floor(t), f = t - k;
+      const strand = ((k % STRANDS) + STRANDS) % STRANDS;
+      const round = Math.sin(f * Math.PI);                          // each strand bulges, creased at its edges
+      const fib = fibre[((Math.round((l - a) * 1.6) % fibre.length) + fibre.length) % fibre.length]; // fibres run along the strand
+      const b = 0.38 + 0.62 * Math.pow(round, 0.6) * (0.78 + 0.32 * fib);
+      const [r, gg, bb] = tone[strand];
+      const i = (y * N + x) * 4;
+      img.data[i] = r * b; img.data[i + 1] = gg * b; img.data[i + 2] = bb * b; img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  // The odd stray straw poking out.
+  g.strokeStyle = 'rgba(240,220,150,0.55)';
+  g.lineWidth = 1;
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * N, y = Math.random() * N, d = 6 + Math.random() * 10;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + d, y + d * (Math.random() - 0.3)); g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 8;
+  return tex;
+}
+const ROPE_TWIST = 0.6;   // metres of rope per tile
+function ropeMaterial(along, length) {
+  const map = ropeTexture(along);
+  const reps = Math.max(1, Math.round(length / ROPE_TWIST));
+  if (along === 'u') map.repeat.set(reps, 1); else map.repeat.set(1, reps);
+  // The same picture doubles as a bump map, so the strands and creases catch the light.
+  return new THREE.MeshStandardMaterial({ map, bumpMap: map, bumpScale: 1.6, roughness: 0.92 });
+}
 const floorTex = canvasTexture(512, 512, (g, w, h) => {
   for (let y = 0; y < h; y += 32) {
     for (let x = (y / 32) % 2 ? -64 : 0; x < w; x += 128) {
@@ -153,11 +194,12 @@ scene.add(arena);
   }
 
   // The ring: twenty straw bales, half-buried, with small gaps between them.
-  const strawMat = new THREE.MeshStandardMaterial({ map: strawTex, roughness: 0.9 });
   const BALES = 20;
+  const ringArc = (Math.PI * 2) / BALES;
+  const ringMat = ropeMaterial('u', (RING_R + 0.1) * ringArc * 0.94);
   for (let i = 0; i < BALES; i++) {
-    const arc = (Math.PI * 2) / BALES;
-    const bale = new THREE.Mesh(new THREE.TorusGeometry(RING_R + 0.1, 0.1, 10, 10, arc * 0.94), strawMat);
+    const arc = ringArc;
+    const bale = new THREE.Mesh(new THREE.TorusGeometry(RING_R + 0.1, 0.1, 16, 24, arc * 0.94), ringMat);
     bale.rotation.x = -Math.PI / 2;
     bale.rotation.z = i * arc;
     bale.position.y = PLATFORM_H + 0.02;
@@ -165,8 +207,9 @@ scene.add(arena);
     arena.add(bale);
   }
   // The square of bales round the platform's edge.
+  const edgeMat = ropeMaterial('v', PLATFORM - 1.2);
   for (let i = 0; i < 4; i++) {
-    const bale = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, PLATFORM - 1.2, 10), strawMat);
+    const bale = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, PLATFORM - 1.2, 16, 1), edgeMat);
     const a = (i * Math.PI) / 2;
     bale.rotation.z = Math.PI / 2;
     bale.rotation.y = a;

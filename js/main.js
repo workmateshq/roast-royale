@@ -240,7 +240,9 @@ const label = (w) => (w === me() ? 'YOU' : nameOf(w));
 function title(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
 // 'You are the winner', 'Kogeta is the champion'
 const winnerLine = (w, what) => (w === me() ? `You are the ${what}` : `${title(nameOf(w))} is the ${what}`);
-const who = (w) => (w === me() ? 'YOU' : match.mode !== 'online' ? 'CPU' : match.active.length > 2 ? 'MATE' : 'YOUR MATE');
+// Online, everyone is just P1-P4 (their slot); against the house it's YOU and CPU.
+const pTag = (slot) => `P${slot + 1}`;
+const who = (w) => (match.mode === 'online' ? pTag(slotOf(w)) + (w === me() ? ' · YOU' : '') : w === me() ? 'YOU' : 'CPU');
 
 // Which slots are in the ring: only those are shown (the rest are parked out of sight).
 function setActive(slots) {
@@ -393,14 +395,14 @@ function drawSelect() {
     list = [mine, { slot: 1, i: sel.cpuI, locked: sel.cpuLocked, tag: 'CPU' }];
   } else {
     const ps = online.players;
-    const mate = ps.length > 2 ? 'MATE' : 'YOUR MATE';
-    list = ps.map((p) => (p.id === online.net.id ? mine : { slot: p.slot - 1, i: p.pick, locked: p.locked, tag: 'YOUR MATE', badge: mate }));
+    Object.assign(mine, { tag: `${pTag(match.slot)} · YOU`, badge: pTag(match.slot) });
+    list = ps.map((p) => (p.id === online.net.id ? mine : { slot: p.slot - 1, i: p.pick, locked: p.locked, tag: pTag(p.slot - 1), badge: pTag(p.slot - 1) }));
     if (!list.includes(mine)) list.push(mine);
     // On your own: an empty spot beside you, waiting for a mate.
     if (list.length < 2) {
       let free = 0;
       while (list.some((d) => d.slot === free)) free++;
-      list.push({ slot: free, i: null, locked: false, tag: 'YOUR MATE', waiting: 'WAITING...' });
+      list.push({ slot: free, i: null, locked: false, tag: pTag(free), waiting: 'WAITING...' });
     }
     list.sort((x, y) => x.slot - y.slot);
   }
@@ -476,13 +478,15 @@ function startBout() {
   canvas.focus();
   // Two face off across the ring; three or four start spread round it, all facing the middle.
   const act = actives();
+  // Three or four: a cross. P1 and P2 face each other across the middle one way, P3 and P4 the other.
+  const CROSS = [[-1.6, 0], [1.6, 0], [0, -1.6], [0, 1.6]];
   act.forEach((w, k) => {
     if (act.length === 2) w.reset(k ? 1.45 : -1.45, k ? -Math.PI / 2 : Math.PI / 2);
     else {
-      const a = (k / act.length) * Math.PI * 2;
-      w.reset(0, 0);
-      w.pos.set(-Math.cos(a) * 1.45, Math.sin(a) * 1.45);
-      w.heading = Math.atan2(-w.pos.x, -w.pos.y);
+      const [x, z] = CROSS[slotOf(w)];
+      w.reset(x, 0);
+      w.pos.set(x, z);
+      w.heading = Math.atan2(-x, -z);
     }
     w.fallSign = 1;
   });
@@ -816,6 +820,8 @@ $('join-btn').addEventListener('click', () => {
 });
 $('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); $('join-btn').click(); } });
 $('online-back').addEventListener('click', () => goTitle());
+// The permanent link room: everyone who opens /roast-royale/mate lands in the same ring.
+$('mate-room').addEventListener('click', () => { busy('Entering the ring...'); online.net.enter('mate', joined); });
 $('copy-link').addEventListener('click', async () => {
   const link = `${location.origin}${basePath()}${(match.room || '').toLowerCase()}`;
   try { await navigator.clipboard.writeText(link); } catch { /* copied below */ }

@@ -196,6 +196,26 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
     }
   }
   feet.forEach((f, s) => (nFeet[s] ? f.divideScalar(nFeet[s]) : f.set((s ? 1 : -1) * 0.3 * halfW, 0, 0)));
+  // Where each separate wing joins the body: its vertices that sit exactly on the body's skin (the
+  // line it was cut along, up by the back). The wing pivots there, and stays fastened there.
+  const seams = [[], []];
+  if (separateWings) {
+    const key = (q) => `${Math.round(q.x * 2e4)},${Math.round(q.y * 2e4)},${Math.round(q.z * 2e4)}`;
+    const onBody = new Set();
+    for (const p of parts) {
+      if (p.wing) continue;
+      const pos = p.geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) onBody.add(key(v.fromBufferAttribute(pos, i)));
+    }
+    for (const p of parts) {
+      if (!p.wing) continue;
+      const pos = p.geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        if (onBody.has(key(v))) seams[v.x < 0 ? 0 : 1].push(v.clone());
+      }
+    }
+  }
   const hipY = HIP_Y * H;
   // Each wing hangs down the side of the body from its shoulder at the top, its tip (the "hand")
   // tucked against the waist. The shoulder is the wing's top end; the elbow is halfway down.
@@ -205,10 +225,17 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
       const sh = new THREE.Vector3(sign * 0.85 * halfW, 0.95 * H, 0);
       return { shoulder: sh, elbow: sh.clone().add(new THREE.Vector3(0, -0.16 * H, 0)), reach: 0.32 * H };
     }
-    pts.sort((a, b) => b.y - a.y);
-    const top = pts.slice(0, Math.max(5, pts.length * 0.12 | 0));
-    const shoulder = top.reduce((a, b) => a.add(b), new THREE.Vector3()).divideScalar(top.length);
-    shoulder.x = sign * Math.min(Math.abs(shoulder.x), 0.86 * halfW);   // in at the body's edge, where it joins
+    let shoulder;
+    if (seams[s].length > 8) {
+      // The middle of the join, nudged into the body a touch so the wing turns about its root.
+      shoulder = seams[s].reduce((a, b) => a.add(b), new THREE.Vector3()).divideScalar(seams[s].length);
+      shoulder.x -= sign * 0.03 * halfW;
+    } else {
+      pts.sort((a, b) => b.y - a.y);
+      const top = pts.slice(0, Math.max(5, pts.length * 0.12 | 0));
+      shoulder = top.reduce((a, b) => a.add(b), new THREE.Vector3()).divideScalar(top.length);
+      shoulder.x = sign * Math.min(Math.abs(shoulder.x), 0.86 * halfW);   // in at the body's edge, where it joins
+    }
     let tip = shoulder, far = 0;
     for (const q of pts) { const d = q.distanceTo(shoulder); if (d > far) { far = d; tip = q; } }
     return { shoulder, elbow: shoulder.clone().lerp(tip, 0.5), reach: far };
@@ -243,7 +270,7 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
   const skeleton = new THREE.Skeleton(bones);
   const B = { torso: 2, leg: [3, 4], shoulder: [5, 7], elbow: [6, 8] };
 
-  // The model is one closed skin. Only the wing itself (out at the side, up high) follows the
+  // (Without separate wing pieces) the model is one closed skin. Only the wing itself (out at the side, up high) follows the
   // wing bones, blending into the body over a short band at its root, and the wing poses are kept
   // small, so the wings stay attached and the torso skin doesn't stretch.
   const mats = [];
@@ -257,8 +284,15 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
       const s = v.x < 0 ? 0 : 1, f = feet[s], j = wingJoints[s];
       const legW = p.wing ? 0 : smoothstep(LEG_TOP * H, (HIP_Y - 0.12) * H, v.y) * smoothstep(0.2, 0.6, Math.abs(v.x) / Math.max(0.05, Math.abs(f.x)));
       const along = v.distanceTo(j.shoulder) / Math.max(0.05, j.reach);
-      // A separate wing piece moves wholly with its wing; the body never follows the wing bones.
-      const wingW = separateWings ? (p.wing ? 1 : 0)
+      // A separate wing moves with its wing bones, except right at its root: the join stays fastened
+      // to the body and the skin just beyond it stretches, so the wing never comes away.
+      let fromSeam = 1;
+      if (p.wing && seams[s].length) {
+        let d = Infinity;
+        for (const q of seams[s]) d = Math.min(d, v.distanceToSquared(q));
+        fromSeam = smoothstep(0, 0.13 * H, Math.sqrt(d));
+      }
+      const wingW = separateWings ? (p.wing ? fromSeam : 0)
         : (1 - legW) * smoothstep(0.68, 0.8, Math.abs(v.x) / halfW) * smoothstep(0.58 * H, 0.68 * H, v.y) * (1 - smoothstep(1.0, 1.2, along));
       const elbowW = wingW * smoothstep(0.45, 0.7, along);
       idx.set([B.leg[s], B.shoulder[s], B.elbow[s], B.torso], i * 4);

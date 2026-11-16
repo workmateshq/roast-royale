@@ -26,6 +26,10 @@ In a match, the buttons under the round name are Home (in the solo tournament or
 
 Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 
+### Mobile
+
+Phones and tablets get layouts that fit upright and on their side, and a see-through touch gamepad while you're in a bout (it's hidden on the menus, and when you're watching online). Drag anywhere in the lower left for the stick (it appears under your thumb); on the right, hold **CHARGE** and let go to launch, tap **PUSH**, hold **BRACE**, and tap **◀ DODGE** / **DODGE ▶** to sidestep. The stick and a button work together. Drag a finger across the open view to turn the camera; a tap there does nothing. "Press any key" prompts become TAP. On touch screens the game also draws fewer pixels, a smaller shadow map and half the practice grass, to keep it smooth.
+
 ## Modes and roster
 
 The home screen is the lobby: a card with four player slots, P1 to P4 (blue, red, green and gold), showing who's in the ring.
@@ -57,7 +61,8 @@ Win a round by pushing your rival out of the ring (Yorikiri), or draining their 
 - `js/chicken.js`: the chicken model, its rig (legs, wings with backwards-bending elbows), walking and arm poses, and the painted-on mawashi.
 - `js/physics.js`: wrestlers, momentum, the four moves, balance, collisions and the ring edge.
 - `js/ai.js`: the CPU opponent's state machine.
-- `js/input.js`: keyboard, mouse and gamepad.
+- `js/input.js`: keyboard, mouse and gamepad (and the touch gamepad's state).
+- `js/touchpad.js`: the on-screen touch gamepad (stick, move buttons) and touch camera drag.
 - `js/effects.js`: particles, synthesised sounds (with hall reverb) and camera shake.
 - `js/voice.js`: the announcer: spoken calls (hakkeyoi, nokotta, the winning technique, yūshō) and the chickens' names, compressed with a little hall reverb, from `assets/words/`.
 - `js/music.js`: looping background music (menus, and taiko only while a round is fought), plus crowd cheers at big moments and applause for the champion.

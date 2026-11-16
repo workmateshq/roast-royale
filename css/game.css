@@ -7,8 +7,11 @@
 }
 * { box-sizing: border-box; }
 html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
-   margin: 0; height: 100%; overflow: hidden; background: #0b0806; color: var(--ink); font-family: var(--arcade); }
-canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; outline: none; }
+   margin: 0; height: 100%; overflow: hidden; background: #0b0806; color: var(--ink); font-family: var(--arcade);
+   overscroll-behavior: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { position: fixed; inset: 0; }   /* no scrolling, rubber-banding or pull-to-refresh under the game */
+button, input, a { touch-action: manipulation; }
+canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; outline: none; touch-action: none; }
 [hidden] { display: none !important; }
 
 /* ---------- HUD ---------- */
@@ -32,6 +35,8 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 /* Shown at 90% like the other mates games (the 3D view stays full size underneath). A transform,
    not zoom, so clicks land exactly where the buttons are drawn. */
 #hud, .screen { inset: auto; top: 0; left: 0; width: calc(100vw / 0.9); height: calc(100vh / 0.9); transform: scale(0.9); transform-origin: 0 0; }
+/* Mobile browsers: the height that's actually visible, between the address bar and the toolbar. */
+@supports (height: 100dvh) { canvas#game { height: 100dvh; } #hud, .screen { height: calc(100dvh / 0.9); } }
 .bout .mark { font-family: var(--serif); font-weight: 800; letter-spacing: 0.32em; font-size: clamp(13px, 1.3vw, 17px); color: var(--gold); }
 .bout .name { font-family: var(--serif); font-size: clamp(15px, 1.7vw, 22px); margin-top: 2px; text-shadow: 0 2px 10px #000; }
 .meters { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -299,3 +304,222 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 
 /* Continue? after losing a stage: the countdown, big. */
 #decision.continue .winner { font-family: var(--serif); font-weight: 800; font-size: clamp(56px, 9vw, 110px); color: var(--gold); margin-top: 4px; line-height: 1; }
+
+/* ---------- Phones and tablets: the on-screen gamepad ---------- */
+/* Not scaled like the HUD: thumb-sized at any size, and clear of notches and home bars. */
+.gamepad { position: fixed; inset: 0; pointer-events: none; z-index: 5; --pad-a: 0.42;
+  --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px); --sb: env(safe-area-inset-bottom, 0px); }
+.stick-zone { position: absolute; left: 0; bottom: 0; width: 46vw; height: min(62vh, 360px); pointer-events: auto; touch-action: none;
+  padding-left: var(--sl); padding-bottom: var(--sb); }
+.stick-base { position: absolute; left: calc(var(--sl) + 92px); top: calc(100% - var(--sb) - 92px); width: 110px; height: 110px; margin: -55px 0 0 -55px;
+  border-radius: 50%; border: 2px solid rgba(232, 194, 122, 0.5); background: radial-gradient(circle, rgba(18, 12, 8, 0.35), rgba(18, 12, 8, 0.7));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), inset 0 0 18px rgba(232, 194, 122, 0.15); opacity: var(--pad-a); transition: opacity 0.15s; }
+.stick-base.on { opacity: 0.8; transition: none; }
+.stick-knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #f3d48e, #b8893a); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
+.stick-base::after { content: 'MOVE'; position: absolute; left: 0; right: 0; top: calc(100% + 6px); text-align: center; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.2em; color: var(--gold); text-shadow: 0 1px 3px #000; }
+.stick-base.on::after { display: none; }
+/* The moves, in an arc under the right thumb: CHARGE in the corner, PUSH and BRACE beside it, the dodges above. */
+.pad-buttons { position: absolute; right: calc(var(--sr) + 10px); bottom: calc(var(--sb) + 10px); width: 236px; height: 180px; pointer-events: none; }
+.pad-btn { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0;
+  width: var(--d); height: var(--d); border-radius: 50%; border: 2px solid rgba(232, 194, 122, 0.75);
+  background: radial-gradient(circle at 50% 35%, rgba(60, 38, 18, 0.85), rgba(14, 9, 6, 0.9));
+  color: var(--ink); font-family: var(--arcade); pointer-events: auto; touch-action: none; cursor: pointer;
+  opacity: var(--pad-a); transition: opacity 0.12s, transform 0.08s; -webkit-user-select: none; user-select: none; }
+.pad-btn svg { width: 40%; height: 40%; display: block; color: var(--gold); }
+.pad-btn b { font-size: calc(var(--d) * 0.32); line-height: 1; color: var(--gold); }
+.pad-btn span { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; margin-right: -0.12em; line-height: 1; }
+.pad-btn.on { opacity: 0.95; transform: scale(0.93); border-color: var(--gold); box-shadow: 0 0 18px rgba(232, 194, 122, 0.55); }
+.pad-charge { --d: 84px; right: 8px; bottom: 8px; border-width: 3px; }
+.pad-charge span { font-size: 12px; }
+.pad-push { --d: 66px; right: 107px; bottom: 7px; }
+.pad-brace { --d: 66px; right: 11px; bottom: 107px; }
+.pad-dodgeL { --d: 58px; right: 171px; bottom: 83px; }
+.pad-dodgeR { --d: 58px; right: 97px; bottom: 107px; }
+
+/* ---------- Phones and tablets: the layouts ---------- */
+/* On a touch screen the gamepad does the explaining; the keyboard hints go, and the referee's
+   caption moves up out from under your thumbs. */
+body.touch .hints { display: none; }
+body.touch #gyoji { bottom: calc((env(safe-area-inset-bottom, 0px) + 215px) / 0.9); }   /* above the gamepad */
+body.touch .hud-btn { width: 40px; height: 40px; padding: 9px; }
+/* Clear of notches and rounded corners (the HUD and screens are drawn at 90%, hence the /0.9). */
+.screen { padding-left: max(24px, calc(env(safe-area-inset-left, 0px) / 0.9)); padding-right: max(24px, calc(env(safe-area-inset-right, 0px) / 0.9)); }
+.hud-top { top: max(14px, calc(env(safe-area-inset-top, 0px) / 0.9));
+  padding: 0 max(clamp(12px, 3vw, 36px), calc(env(safe-area-inset-right, 0px) / 0.9)) 0 max(clamp(12px, 3vw, 36px), calc(env(safe-area-inset-left, 0px) / 0.9)); }
+#title { padding-bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) / 0.9)); }
+
+/* Phones, upright */
+@media (max-width: 600px) {
+  .kanji { letter-spacing: 0.35em; }
+  #title { padding-left: 14px; padding-right: 14px; }
+  #title .tagline { font-size: 16px; }
+  #title .tagline.sub { font-size: 13.5px; }
+  .lobby-card { padding: 12px; gap: 10px; width: 100%; }
+  .slots { gap: 8px; }
+  .slot-icon { width: 40px; height: 40px; }
+  .mode-btn { min-width: 0; padding: 12px 16px; }
+  .mode-btn b { font-size: 18px; letter-spacing: 0.12em; }
+  .mode-btn span { font-size: 13px; }
+  .mode-row { flex-direction: column; gap: 8px; }
+  .mode-row .mode-btn { white-space: normal; flex: none; }
+  .cpu-btn { margin-top: 0; }
+  #code-input { font-size: 24px; }
+  .room-bar { gap: 8px 12px; }
+  .fine { font-size: 11px; }
+  /* The ring's four places, two by two. */
+  .lobby-card .slots { grid-template-columns: repeat(2, 1fr); }
+  .lobby-card .slot { flex-direction: row; justify-content: flex-start; gap: 8px; padding: 6px 10px; text-align: left; flex-wrap: wrap; }
+  .lobby-card .slot-icon { order: -1; width: 36px; height: 36px; flex: none; }
+  .lobby-card .slot-name, .lobby-card .slot-tag { min-height: 0; }
+  .dec-offer { flex-direction: column; align-items: stretch; width: min(360px, 100%); margin-left: auto; margin-right: auto; }
+  .dec-offer .mode-btn { min-width: 0; }
+}
+
+/* Short screens: phones on their side */
+@media (max-height: 500px) {
+  #title { padding-top: 12px; }
+  #title .kanji { display: none; }
+  #title .title { font-size: clamp(34px, 12vh, 60px); }
+  #title .rule { margin: 6px auto; }
+  #title .tagline { font-size: 15px; }
+  #title .tagline.sub { display: none; }
+  .lobby-card { margin-top: 8px; padding: 10px 12px; gap: 8px; }
+  .slot { padding: 4px 6px 3px; gap: 1px; }
+  .slot-icon { width: 34px; height: 34px; }
+  .mode-btn { padding: 9px 16px; gap: 2px; }
+  .lobby-view { gap: 8px; }
+  .lobby-view > .mode-btn.primary { padding: 9px 18px; }
+  .cpu-btn { margin-top: 0; padding: 8px 18px; }
+  .mode-btn b { font-size: 17px; }
+  .mode-btn span { font-size: 12.5px; }
+  #code-input { font-size: 22px; padding: 4px 10px; }
+  .mode-row { flex-direction: row; }
+  .mode-row .mode-btn { white-space: nowrap; }
+}
+
+/* Choose your chicken, upright phone: the panels up top, under the title; a 4 + 3 roster. */
+@media (max-width: 600px) {
+  .screen.select { padding: max(16px, calc(env(safe-area-inset-top, 0px) / 0.9)) 12px max(14px, calc(env(safe-area-inset-bottom, 0px) / 0.9)); }
+  .select-title { font-size: 21px; letter-spacing: 0.16em; margin-right: -0.16em; }
+  .fighters { top: 64px; bottom: auto; width: calc(50% - 18px); gap: 6px; }
+  .fighters.left { left: 12px; }
+  .fighters.right { right: 12px; }
+  .fighter { padding: 8px 10px; }
+  .fname { font-size: 18px; }
+  .fname .fjp { display: none; }
+  .fcook { font-size: 11px; letter-spacing: 0.08em; }
+  .fstats { display: grid; margin-top: 8px; gap: 3px 8px; font-size: 10px; letter-spacing: 0.1em; }
+  .fighter.compact .fstats { display: none; }
+  .flock { margin-top: 4px; font-size: 13px; }
+  .roster { gap: 8px; max-width: 330px; }
+  .tile { width: 74px; padding-bottom: 5px; border-width: 2px; }
+  .tile .tname { font-size: 11.5px; letter-spacing: 0.04em; }
+  .tile .badges { top: 4px; left: 4px; right: 4px; gap: 3px; }
+  .tile .badge { font-size: 10px; padding: 1px 4px; }
+  .ready-btn { min-width: 0; width: min(330px, 100%); padding: 13px 20px; }
+  .ready-btn b { font-size: 26px; }
+  .room-bar.compact { padding: 4px 10px; font-size: 12px; }
+}
+/* ... and on its side: one row of smaller tiles, the panels tucked in at the top corners. */
+@media (max-height: 500px) {
+  .screen.select { padding: max(8px, calc(env(safe-area-inset-top, 0px) / 0.9)) 16px max(8px, calc(env(safe-area-inset-bottom, 0px) / 0.9)); }
+  .select-title { font-size: 23px; }
+  .fighters { top: 10px; bottom: auto; width: min(220px, 24vw); gap: 6px; }
+  .fighter { padding: 7px 10px; }
+  .fname { font-size: 17px; margin-top: 2px; }
+  .fcook { font-size: 11px; letter-spacing: 0.08em; }
+  .fstats, .fighter.compact .fstats { display: none; }
+  .flock { margin-top: 2px; font-size: 13px; }
+  .fighter.compact .fname { font-size: 15px; }
+  .select-bottom { gap: 6px; }
+  .roster { flex-wrap: nowrap; gap: 6px; }
+  .tile { width: 62px; padding-bottom: 3px; border-width: 2px; }
+  .tile .pic { aspect-ratio: 1; background-position: center 20%; }
+  .tile .tname { font-size: 11px; letter-spacing: 0.02em; }
+  .tile .badges { top: 3px; left: 3px; right: 3px; gap: 2px; }
+  .tile .badge { font-size: 9.5px; padding: 0 4px; }
+  .ready-btn { min-width: 300px; margin-top: 2px; padding: 8px 30px; }
+  .ready-btn b { font-size: 22px; }
+  .link-btn { font-size: 14px; padding: 2px 8px; }
+  .room-bar.compact { padding: 3px 10px; }
+}
+
+/* The HUD, upright phone: the two meters share the top row, the bout's name and buttons under them. */
+@media (max-width: 600px) {
+  .hud-top { grid-template-columns: 1fr 1fr; gap: 6px 8px; padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+  .hud-top .bout { grid-column: 1 / -1; grid-row: 2; }
+  .meters { gap: 6px; }
+  .meter, .meter.compact { width: 100%; padding: 6px 9px 8px; border-radius: 8px; }
+  .meter .who, .meter.compact .who { font-size: 15px; gap: 6px; flex-wrap: wrap; row-gap: 0; }
+  .meter .belt { width: 18px; height: 9px; }
+  .meter .rank { font-size: 10px; letter-spacing: 0.08em; }
+  .meter .stars { font-size: 12px; letter-spacing: 1px; }
+  .bar-label { font-size: 10px; letter-spacing: 0.12em; margin: 4px 0 3px; }
+  .bar, .meter.compact .bar { height: 10px; }
+  .bar.small, .meter.compact .bar.small { height: 4px; margin-top: 4px; }
+  .bout .mark { display: none; }
+  .bout .name { font-size: 14px; }
+  .hud-buttons { margin-top: 4px; }
+  #callout { font-size: clamp(36px, 12vw, 64px); letter-spacing: 0.08em; }
+  #gyoji { font-size: 16px; padding: 5px 16px; max-width: 94%; white-space: normal; text-align: center; }
+  #decision .kimarite { font-size: clamp(34px, 11.5vw, 64px); overflow-wrap: anywhere; }
+  #decision .winner { font-size: 22px; }
+  #decision .flavour { font-size: 14px; }
+  #decision .tally { font-size: 15px; }
+  #decision.continue .winner { font-size: 64px; }
+  .cta { font-size: 15px; letter-spacing: 0.14em; }
+}
+/* The HUD on its side: slimmer meters, so the ring has the screen. */
+@media (max-height: 500px) {
+  .hud-top { top: max(8px, env(safe-area-inset-top, 0px)); }
+  .meter { padding: 6px 10px 8px; width: min(300px, 30vw); }
+  .meter.compact { padding: 4px 9px 6px; width: min(250px, 26vw); }
+  .meter .who, .meter.compact .who { font-size: 15px; }
+  .meter .rank { font-size: 10px; }
+  .bar-label { margin: 3px 0 2px; font-size: 10px; }
+  .meter.compact .bar-label { display: none; }
+  .meter.compact .who { gap: 6px; }
+  .bar { height: 10px; }
+  .meters { gap: 5px; }
+  .bout .mark { font-size: 12px; }
+  .bout .name { font-size: 14px; }
+  .hud-buttons { margin-top: 4px; }
+  #callout { top: 24%; font-size: clamp(36px, 13vh, 72px); }
+  body.touch #gyoji { top: 30%; bottom: auto; }
+  #gyoji { font-size: 16px; }
+  /* The battle plan: eight slimmer rungs, so the whole climb fits. */
+  .screen.plan { --rh: clamp(28px, 7.4vh, 40px); --gap: 3px; gap: 4px; padding-top: 8px; padding-bottom: 8px; }
+  .plan .kanji { display: none; }
+  .plan .select-title { font-size: 22px; }
+  .rung-plate { padding: 0 10px; flex-direction: row; align-items: center; gap: 10px; }
+  .rung-plate small { font-size: 10px; }
+  .rung-plate b { font-size: 16px; }
+  .rung.boss::after { font-size: 10px; padding: 2px 6px; }
+  .plan-next { font-size: 15px; margin-top: 2px; }
+  .plan-next small { font-size: 11px; }
+  .plan .cta { margin-top: 0; font-size: 14px; }
+  /* Verdicts */
+  #decision { gap: 0; padding-top: 10px; padding-bottom: 10px; }
+  #decision .kimarite { font-size: clamp(34px, 14vh, 72px); }
+  #decision .kim-kanji { font-size: 20px; }
+  #decision .winner { font-size: 20px; margin-top: 6px; }
+  #decision .flavour { font-size: 13px; margin-top: 4px; }
+  #decision .tally { font-size: 14px; margin-top: 6px; }
+  #decision.continue .winner { font-size: 56px; }
+  .dec-offer { margin-top: 10px; }
+  .dec-offer .mode-btn { padding: 8px 18px; }
+  .cta { margin-top: 8px; font-size: 14px; }
+}
+/* Upright phones: the battle plan's rungs a touch slimmer too. */
+@media (max-width: 600px) and (min-height: 501px) {
+  .screen.plan { --rh: clamp(38px, 6.4vh, 56px); }
+  .rung { width: min(320px, 72vw); }
+  .rung-plate { padding: 0 10px; }
+  .rung-plate b { font-size: clamp(14px, 2vh, 17px); letter-spacing: 0.05em; }
+  .rung.boss::after { right: 8px; font-size: 10px; padding: 2px 6px; letter-spacing: 0.14em; }
+  .plan-you { right: calc(100% + 12px); }
+  .plan-you::after { right: -13px; border-width: 6px; margin-top: -6px; }
+  .plan-next { font-size: 15px; text-align: center; }
+}

@@ -6,6 +6,17 @@ import { canvas } from './scene.js';
 // Right-click is the brace in a bout; on menus the browser's own menu is left alone.
 export const inputState = { inGame: false };
 
+// Phones and tablets: a coarse pointer at load, or any touch at all (a touchscreen laptop gets the
+// on-screen gamepad once it's touched). body.touch switches the CSS to the touch layout.
+let touchOn = matchMedia('(hover: none) and (pointer: coarse)').matches;
+export const isTouch = () => touchOn;
+const markTouch = () => { if (document.body) document.body.classList.toggle('touch', touchOn); };
+markTouch();
+addEventListener('DOMContentLoaded', markTouch);
+// The on-screen gamepad's stick (screen space, y down, like a gamepad's) and held buttons.
+export const touch = { move: new V2(), charge: false, brace: false };
+let lastTouch = -1e9;
+
 // =====================================================================================
 // Player input: keyboard + mouse, or a gamepad. Movement is relative to the camera.
 // =====================================================================================
@@ -22,7 +33,7 @@ addEventListener('keydown', (e) => {
   ac();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
-addEventListener('blur', () => { keys.clear(); braceHeld = false; });
+addEventListener('blur', () => { keys.clear(); braceHeld = false; touch.charge = touch.brace = false; touch.move.set(0, 0); });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('contextmenu', (e) => { if (inputState.inGame) e.preventDefault(); });
 // Left button: a quick click is the Breast Push; click and drag turns the camera instead.
@@ -30,13 +41,19 @@ addEventListener('contextmenu', (e) => { if (inputState.inGame) e.preventDefault
 export const camDrag = { yaw: 0, pitch: 0, active: false };
 let down = null;
 // On a touch screen, a tap anywhere outside the menus counts as "continue".
+// (Not the gamepad, and not the 3D view mid-bout: there a drag turns the camera and a tap does nothing.)
 addEventListener('touchstart', (e) => {
   ac();
+  lastTouch = performance.now();
+  if (!touchOn) { touchOn = true; markTouch(); }
   if (e.target.closest && e.target.closest('.ui, button, input, a')) return;
+  if (inputState.inGame && e.target === canvas) return;
   pressed.start = true;
-}, { passive: true });
+}, { passive: true, capture: true });
 addEventListener('mousedown', (e) => {
   ac();
+  // The mouse events a browser makes up after a tap: the touch handlers above have it covered.
+  if (performance.now() - lastTouch < 800) return;
   // Clicks on menus and buttons are theirs, not the game's.
   if (e.button === 0 && e.target.closest && e.target.closest('.ui, button, input, a')) return;
   if (e.button === 0) { down = { x: e.clientX, y: e.clientY, dragging: false }; pressed.start = true; }
@@ -87,13 +104,13 @@ export function playerIntent(camAz) {
   if (keys.has('KeyS') || keys.has('ArrowDown')) y -= 1;
   if (keys.has('KeyD') || keys.has('ArrowRight')) x += 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) x -= 1;
-  x += pad.move.x;
-  y -= pad.move.y;
+  x += pad.move.x + touch.move.x;
+  y -= pad.move.y + touch.move.y;
   const move = fwd.multiplyScalar(y).add(right.multiplyScalar(x)).clampLength(0, 1);
   return {
     move, face: null,
-    charge: keys.has('Space') || pad.charge,
-    brace: braceHeld || pad.brace,
+    charge: keys.has('Space') || pad.charge || touch.charge,
+    brace: braceHeld || pad.brace || touch.brace,
     push: pressed.push, dodge: pressed.dodge, dodgeTo,
   };
 }

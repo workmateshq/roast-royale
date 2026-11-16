@@ -3,6 +3,7 @@
 // first time practice starts; scene.js swaps it in for the arena (the dohyō stays in the middle).
 import * as THREE from 'three';
 
+const LITE = matchMedia('(hover: none) and (pointer: coarse)').matches;   // phones and tablets: half the grass
 const SEA_Y = -30;
 const SEA_DIR = -1.05;                      // the bearing (atan2(z, x)) of the nearest cliff edge, and the sea stack beyond it
 export const SUN_DIR = new THREE.Vector3(12, 20, 8).normalize();
@@ -195,7 +196,7 @@ const clearOfRing = (x, z, pad) => Math.abs(x) > 5.9 + pad || Math.abs(z) > 5.9 
 
 function meadow(group) {
   // Grass tufts: densest round the ring (where the camera looks), thinning out to the cliff edge.
-  const TUFTS = 5200;
+  const TUFTS = LITE ? 2600 : 5200;
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.85 });
   sway(mat, 0.12);
   const tufts = new THREE.InstancedMesh(tuftGeometry(), mat, TUFTS);
@@ -221,7 +222,7 @@ function meadow(group) {
   group.add(tufts);
 
   // Wild carrot (Queen Anne's lace): a slim stem with a flat white umbel on top.
-  const FLOWERS = 700;
+  const FLOWERS = LITE ? 350 : 700;
   const stemMat = new THREE.MeshStandardMaterial({ color: 0x6a8a33, roughness: 0.9 });
   sway(stemMat, 0.1);
   const stemGeo = new THREE.CylinderGeometry(0.008, 0.012, 1, 4, 1, true).translate(0, 0.5, 0);
@@ -328,7 +329,7 @@ export function buildCliff() {
   sun.position.copy(SUN_DIR).multiplyScalar(30);
   sun.target.position.set(0, 0, 0);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.setScalar(LITE ? 1024 : 2048);
   Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 11, bottom: -11, near: 5, far: 70 });
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.03;

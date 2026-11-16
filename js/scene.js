@@ -9,7 +9,9 @@ import { buildCliff } from './cliff.js';
 // =====================================================================================
 export const canvas = document.getElementById('game');
 export const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Phones and tablets: fewer pixels and a smaller shadow map, to keep the frame rate up.
+export const LITE = matchMedia('(hover: none) and (pointer: coarse)').matches;
+renderer.setPixelRatio(Math.min(devicePixelRatio, LITE ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -27,10 +29,18 @@ scene.environmentIntensity = 0.35;
 
 export const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 120);
 camera.position.set(0, 8, 12);
+// A tall, narrow screen (a phone held upright) keeps the side-to-side view of a 6:5 one, so both
+// wrestlers stay in shot; anything wider is the usual 40 degrees.
+function fitCamera() {
+  const aspect = innerWidth / innerHeight, MIN = 1.2;
+  camera.aspect = aspect;
+  camera.fov = aspect >= MIN ? 40 : 2 * THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(20)) * MIN / aspect));
+  camera.updateProjectionMatrix();
+}
+fitCamera();
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
+  fitCamera();
 });
 
 // Lighting: one warm arena spotlight from the roof (the key light, with shadows), a dim warm/cool
@@ -43,7 +53,7 @@ const spot = new THREE.SpotLight(0xffd29a, 340, 0, 0.36, 0.22, 2);
 spot.position.set(0.4, 15, 0.6);
 spot.target.position.set(0, PLATFORM_H, 0);
 spot.castShadow = true;
-spot.shadow.mapSize.set(2048, 2048);
+spot.shadow.mapSize.setScalar(LITE ? 1024 : 2048);
 spot.shadow.bias = -0.0004;
 spot.shadow.normalBias = 0.02;
 spot.shadow.radius = 4;

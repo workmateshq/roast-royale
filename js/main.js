@@ -12,7 +12,8 @@ import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
 import { updateMusic, cheer, applause, musicState, setMusicMuted, setCrowdMuted, setCrowdHere } from './music.js';
 import { say, voiceKey, preloadVoices, setVoiceMuted } from './voice.js';
-import { keys, pressed, pollPad, playerIntent, inputState, camDrag } from './input.js';
+import { keys, pressed, pollPad, playerIntent, inputState, camDrag, isTouch } from './input.js';
+import { showGamepad } from './touchpad.js';
 
 // =====================================================================================
 // Camera: orbits behind your shoulder, framing you and your nearest rival; pulls back for charges,
@@ -741,12 +742,12 @@ function showDecision() {
   $('dec-winner').textContent = d.winner != null ? winnerLine(wrestlers[d.winner], 'winner') : 'No winner this time. The round will be fought again';
   $('dec-flavour').textContent = '';
   $('dec-tally').textContent = tally();
-  $('dec-cta').textContent = waitCta() || `${ANY_KEY} TO CONTINUE`;
+  $('dec-cta').textContent = waitCta() || `${anyKey()} TO CONTINUE`;
   showScreen('decision');
 }
 
 // Phones and tablets get "tap" rather than "press any key".
-const ANY_KEY = matchMedia('(hover: none) and (pointer: coarse)').matches ? 'TAP' : 'PRESS ANY KEY';
+const anyKey = () => (isTouch() ? 'TAP' : 'PRESS ANY KEY');
 const CHAMPION_WAIT = 10;   // seconds on the champion screen
 function showChampion() {
   $('decision').classList.remove('continue');
@@ -876,7 +877,7 @@ function renderPlan(climb) {
   const sub = document.createElement('small');
   sub.textContent = `${k.cook.toUpperCase()} · ${k.rank}`;
   $('plan-next').append(line, sub);
-  $('plan-cta').textContent = `${ANY_KEY} TO FIGHT`;
+  $('plan-cta').textContent = `${anyKey()} TO FIGHT`;
 }
 function updatePlan() {
   // The announcer calls your next rival (once you've stepped up).
@@ -906,7 +907,7 @@ function showContinue() {
   $('dec-winner').textContent = String(CONTINUE_WAIT);
   $('dec-flavour').textContent = 'Re-baste, regroup, and fight the stage again from the first round.';
   $('dec-tally').textContent = tally();
-  $('dec-cta').textContent = `${ANY_KEY} TO TRY AGAIN`;
+  $('dec-cta').textContent = `${anyKey()} TO TRY AGAIN`;
   showScreen('decision');
   Object.assign(game, { phase: 'continue', phaseT: 0, timeScale: 1 });
   sfx.taiko();
@@ -948,12 +949,12 @@ function updateFlow(real) {
       if (!$('dec-offer').hidden) {
         // The harder-tournament offer waits a little longer for an answer; Enter takes it, the timer goes home.
         const wait = CHAMPION_WAIT + 10, l2 = Math.max(0, Math.ceil(wait - game.phaseT));
-        $('dec-cta').textContent = `ENTER FOR A TOUGHER TOURNAMENT · ${l2}`;
+        $('dec-cta').textContent = `${isTouch() ? 'TAP' : 'ENTER'} FOR A TOUGHER TOURNAMENT · ${l2}`;
         if (pressed.start && game.phaseT > 0.5) harderTournament();
         else if (game.phaseT >= wait) goTitle();
         break;
       }
-      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `${ANY_KEY} TO ${match.mode === 'solo' ? 'RETURN HOME' : 'CHOOSE AGAIN'} · ${left}`;
+      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `${anyKey()} TO ${match.mode === 'solo' ? 'RETURN HOME' : 'CHOOSE AGAIN'} · ${left}`;
       if (!isGuest() && ((pressed.start && game.phaseT > 0.5) || game.phaseT >= CHAMPION_WAIT)) {
         if (match.mode === 'solo') goTitle();
         else { flow({ kind: 'select' }); goSelect(); }
@@ -1357,9 +1358,11 @@ function tick(now, draw) {
   if (POSE) { camera.position.set(Math.sin(POSE.az) * 2.6, PLATFORM_H + 1.1, Math.cos(POSE.az) * 2.6); camera.lookAt(0, PLATFORM_H + 0.7, 0); }
   updateBanners();
   updateHud(real);
+  // The touch gamepad: only while you've a chicken of your own in the bout.
+  showGamepad(isTouch() && !POSE && ['ready', 'fight'].includes(game.phase) && match.active.includes(match.slot));
   if (draw) renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
 
 // For testing in the console: window.roast.game, .wrestlers, .player (blue), .cpu (red), .soloJump(n) (solo stage n)
-window.roast = { musicState, game, wrestlers, player, cpu, brain, match, online, practice, solo, soloJump, startBout, beginTournament, debugRig };
+window.roast = { musicState, game, wrestlers, player, cpu, brain, match, online, practice, solo, soloJump, startBout, beginTournament, debugRig, cam, camDrag };

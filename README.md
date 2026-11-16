@@ -39,7 +39,7 @@ The home screen is the lobby: a card with four player slots, P1 to P4 (blue, red
 | Rōsuto | Golden roast | The all-rounder |
 | Yakitori | Barely crispy | Soft and forgiving |
 | Reitō | Frozen raw chook | Heavy and stiff, slow to turn |
-| Katsudon | Battered | Heavy shove, crunchy armour |
+| Katsu | Battered | Heavy shove, crunchy armour |
 | Kogeta | Extra crispy (charcoal black) | Light and quick, but brittle |
 | Funiku | Rotten (grey, mouldy, fuzzy) | Hits hard, falls apart |
 | Rappu | Raw and white, in a tied roasting bag | Slippery and cushioned |

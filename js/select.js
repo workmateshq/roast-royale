@@ -82,7 +82,9 @@ export function renderSelect(list) {
       return;
     }
     const c = ROSTER[d.i];
-    q('.fname').textContent = c.name;
+    q('.fname').innerHTML = '';
+    q('.fname').append(c.name);
+    if (c.jp) { const j = document.createElement('span'); j.className = 'fjp'; j.textContent = c.jp; q('.fname').append(j); }
     q('.fcook').textContent = `${c.cook.toUpperCase()} · ${c.rank}`;
     q('.fstats').replaceChildren(...statBars(c).flatMap(([label, v]) => {
       const l = document.createElement('span');

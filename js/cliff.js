@@ -320,35 +320,6 @@ export function buildCliff() {
   group.add(cliff.mesh, foam(cliff.foot, 120));
   meadow(group);
 
-  // The sea stack: flat-topped and sheer, out in the water beyond the nearest edge.
-  {
-    const r = (a) => 15 + 2.5 * Math.sin(2 * a + 0.7) + 1.4 * Math.sin(5 * a + 2) + 0.6 * Math.sin(11 * a);
-    const stack = new THREE.Group();
-    const top = 7;
-    const col = rockColumn(r, top, SEA_Y - 2, { segs: 72, flare: 0.22, rough: 1.8, seedK: 4.1, moss: 3 });
-    const mossMat = new THREE.MeshStandardMaterial({ map: grassTex(), color: 0xd8e08a, roughness: 1 });
-    mossMat.map.repeat.set(1 / 4, 1 / 4);
-    stack.add(col.mesh, cap(r, top + 0.01, mossMat, 96), foam(col.foot, 72));
-    const d = 92, a = SEA_DIR + 0.32;
-    stack.position.set(Math.cos(a) * d, 0, Math.sin(a) * d);
-    group.add(stack);
-    // A lower, longer headland off to the side, and a couple of rocks in the surf.
-    const r2 = (b) => 26 + 12 * Math.cos(2 * b) + 2 * Math.sin(5 * b + 1);
-    const head = rockColumn(r2, -6, SEA_Y - 2, { segs: 72, flare: 0.25, rough: 2, seedK: 8.2, moss: 3 });
-    const headland = new THREE.Group();
-    headland.add(head.mesh, cap(r2, -5.99, mossMat, 96), foam(head.foot, 72));
-    const a2 = SEA_DIR - 0.75;
-    headland.position.set(Math.cos(a2) * 150, 0, Math.sin(a2) * 150);
-    headland.rotation.y = 0.6;
-    group.add(headland);
-    for (const [da, dd, rr] of [[0.05, 58, 3.2], [0.6, 70, 2.2], [-0.35, 52, 1.6]]) {
-      const rk = (b) => rr + 0.6 * Math.sin(3 * b + rr);
-      const rock = rockColumn(rk, SEA_Y + rr * 1.2, SEA_Y - 1, { segs: 14, flare: 0.6, rough: 0.6, seedK: rr, moss: 0.4 });
-      rock.mesh.position.set(Math.cos(SEA_DIR + da) * dd, 0, Math.sin(SEA_DIR + da) * dd);
-      group.add(rock.mesh);
-    }
-  }
-
   sky(group);
   sea(group);
 

@@ -6,7 +6,7 @@ import { ac, hallReverb } from './effects.js';
 const FILES = {
   hakkeyoi: 'hakkeyoi', nokotta: 'nokotta',
   'YORIKIRI!': 'yorikiri', 'ISAMIASHI!': 'isamashi', 'KOPPORI!': 'koppori', 'YŪSHŌ': 'yusho',
-  rosuto: 'rosuto', yakitori: 'yakitori', reito: 'reito', katsudon: 'katsudon', kogeta: 'kogeta', funiku: 'funiku', rappu: 'rappu', megarosuto: 'megarosuto',
+  rosuto: 'rosuto', yakitori: 'yakitori', reito: 'reito', katsu: 'katsu', kogeta: 'kogeta', funiku: 'funiku', rappu: 'rappu', megarosuto: 'megarosuto',
 };
 const LOUDNESS = 0.7;    // a little above the music (0.22-0.4) without shouting over it
 const GAP = 0.12;        // seconds between queued words

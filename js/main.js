@@ -594,7 +594,8 @@ function choosePractice() {
   preloadVoices();
   match.mode = 'practice';
   match.slot = 0;
-  goSelect();
+  sel.i = Math.max(0, ROSTER.findIndex((c) => c.id === 'roast'));   // practice is always as Rōsuto
+  startPractice();
 }
 function startPractice() {
   Object.assign(practice, { outs: 0, topples: 0 });

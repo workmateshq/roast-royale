@@ -91,13 +91,13 @@ function animate(w, t, dt) {
       // Tripped over the straw: a couple of staggering steps back, windmilling, then over onto its
       // back with a bump, drumsticks and wings flapping.
       const ft = clock.t - w.doneAt;
-      const tip = smoothstep(0.3, 0.62, ft);
-      const totter = ft < 0.35 ? Math.sin(ft * 18) * (1 - ft / 0.35) : 0;
-      pitch = 0.18 * Math.sin(Math.min(1, ft / 0.2) * Math.PI) + 0.12 * totter - 1.62 * tip;   // pitches forward to save itself, then goes over backwards
-      roll = 0.22 * totter * w.fallSign + 0.15 * w.fallSign * tip + (ft > 0.7 ? Math.sin(ft * 9) * 0.06 : 0);
-      if (ft > 0.6 && ft < 0.75) squash = 0.9;         // the bump as it lands
-      armPose = ft > 0.55 ? 'flap' : 'flail';
-      canWalk = ft < 0.35;                               // the feet keep stepping while it staggers
+      const tip = smoothstep(0.14, 0.38, ft);
+      const totter = ft < 0.2 ? Math.sin(ft * 24) * (1 - ft / 0.2) : 0;
+      pitch = 0.18 * Math.sin(Math.min(1, ft / 0.12) * Math.PI) + 0.12 * totter - 1.62 * tip;   // pitches forward to save itself, then goes over backwards
+      roll = 0.22 * totter * w.fallSign + 0.15 * w.fallSign * tip + (ft > 0.5 ? Math.sin(ft * 9) * 0.06 : 0);
+      if (ft > 0.38 && ft < 0.5) squash = 0.88;         // the bump as it lands
+      armPose = ft > 0.34 ? 'flap' : 'flail';
+      canWalk = ft < 0.2;                               // the feet keep stepping while it staggers
       break;
     }
   }
@@ -129,7 +129,7 @@ function animate(w, t, dt) {
     roll = Math.sin(game.realT * 3.2) * 0.12;                                                                                           // a victory shiko stomp
     armPose = 'victory';
   }
-  const k = 1 - Math.exp(-dt * (w.done ? 5 : 14));
+  const k = 1 - Math.exp(-dt * (w.done ? 11 : 14));
   a.pitch += (pitch - a.pitch) * k; a.roll += (roll - a.roll) * k; a.lunge += (lunge - a.lunge) * k;
   a.crouch += (crouch - a.crouch) * Math.min(1, dt * 10); a.squash += (squash - a.squash) * k;
   v.root.position.set(w.pos.x, w.y, w.pos.y);
@@ -140,7 +140,7 @@ function animate(w, t, dt) {
   v.body.rotation.set(a.pitch + (w.done ? 0 : 0.14), 0, a.roll);
   const onBack = Math.max(0, -a.pitch);   // how far it's gone over backwards
   // Tipping over pivots on the feet; lifted a little as it goes so it rolls onto its side, not into the sand.
-  v.body.position.set(0, Math.abs(Math.sin(a.roll)) * 0.2 + Math.sin(Math.min(Math.PI / 2, onBack)) * 0.55, a.lunge - Math.sin(Math.min(Math.PI / 2, onBack)) * 0.5);
+  v.body.position.set(0, Math.abs(Math.sin(a.roll)) * 0.2 + Math.sin(Math.min(Math.PI / 2, onBack)) * 0.37, a.lunge - Math.sin(Math.min(Math.PI / 2, onBack)) * 0.5);
   poseChicken(v, w, dt, { crouch: a.crouch, squash: a.squash, armPose, canWalk, shiko });
   const ground = Math.abs(w.pos.x) < PLATFORM / 2 && Math.abs(w.pos.y) < PLATFORM / 2 ? PLATFORM_H : 0;
   v.blob.position.set(w.pos.x, ground + 0.012, w.pos.y);

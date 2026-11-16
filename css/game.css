@@ -135,6 +135,7 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
   background: var(--panel); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(4px);
 }
 .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.slots[hidden] { display: none; }
 .slot {
   display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 7px 6px 5px;
   border: 2px dashed var(--line); border-radius: 12px; color: var(--muted); transition: border-color 0.2s, box-shadow 0.2s;

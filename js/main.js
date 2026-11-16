@@ -324,7 +324,7 @@ function renderLobby() {
   const room = inRoom();
   $('setup-view').hidden = room;
   $('room-view').hidden = !room;
-  $('start-cta').hidden = room;
+  $('slots').hidden = !room;   // the player slots only once you're in a ring
   const entries = SLOTS.map(() => null);
   $('lobby-wait').hidden = !room || canBegin();
   if (!room) {
@@ -942,7 +942,6 @@ function applySoundPrefs() {
 });
 applySoundPrefs();
 // The permanent link room: everyone who opens /roast-royale/mate lands in the same ring.
-$('mate-room').addEventListener('click', () => { sfx.clack(); connect('Entering the ring...', true, (ack) => online.net.enter('mate', ack)); });
 $('copy-link').addEventListener('click', async () => {
   const link = `${location.origin}${basePath()}${(match.room || '').toLowerCase()}`;
   try { await navigator.clipboard.writeText(link); } catch { /* copied below */ }

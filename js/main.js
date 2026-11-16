@@ -786,7 +786,8 @@ function stageRival(n) {
   return { pick: i, name: ROSTER[i].name };
 }
 // The CPU gets sharper every stage: from a gentle 0.35 to full strength by stage 7 (and the boss).
-const soloLevel = () => Math.min(1, 0.35 + (0.65 * solo.stage) / (STAGES - 2));
+// A gentle start that gets properly hard: stage 1 ≈ 0.1, the middle stages ramp up, the last rival and the boss at full strength.
+const soloLevel = () => Math.min(1, 0.08 + 0.92 * Math.pow(solo.stage / (STAGES - 2), 1.6));
 function shuffleRivals() {
   const others = ROSTER.map((_, i) => i).filter((i) => i !== sel.i);
   for (let k = others.length - 1; k > 0; k--) { const j = (Math.random() * (k + 1)) | 0; [others[k], others[j]] = [others[j], others[k]]; }

@@ -21,6 +21,8 @@ export class Brain {
     this.windFor = 0.5;
     this.reaction = null;
     this.keepDist = 2.5;
+    this.noticeIn = 0;
+    this.wander = 0;
   }
   go(state) { this.state = state; this.t = 0; }
 
@@ -37,12 +39,19 @@ export class Brain {
     const edgePull = inward.multiplyScalar(Math.max(0, myR - (RING_R - 1.4)) * 1.4);
     const aimedAtMe = op.facing.dot(dirTo.clone().negate()) > 0.9;
     const lvl = this.level;
-    it.face = dirTo;
+    // Low levels aim sloppily: their facing drifts a little off you, so their shoves and charges miss more.
+    this.wander += (rand(-1, 1) * (1 - lvl) * 1.4 - this.wander) * Math.min(1, dt * 1.5);
+    const sway = this.wander * (1 - lvl);
+    it.face = new V2(dirTo.x * Math.cos(sway) - dirTo.y * Math.sin(sway), dirTo.x * Math.sin(sway) + dirTo.y * Math.cos(sway));
 
     // An incoming charge: dodge it or brace for it, decided once.
     const threat = dist < 5.5 && ((op.state === 'charge' && op.vel.dot(dirTo) < -3) || (op.state === 'windup' && aimedAtMe && op.charge > 0.45));
-    if (threat && this.state !== 'react' && this.state !== 'windup') {
-      this.reaction = me.cd.dodge <= 0 && Math.random() < 0.35 + 0.35 * lvl ? 'dodge' : 'brace';
+    // Easier opponents are slow to notice an incoming charge (and sometimes don't react at all).
+    if (!threat) this.noticeIn = (1 - lvl) * rand(0.25, 0.6);
+    else this.noticeIn -= dt;
+    if (threat && this.noticeIn <= 0 && this.state !== 'react' && this.state !== 'windup') {
+      const r = Math.random();
+      this.reaction = r < 0.45 * (1 - lvl) ? 'none' : me.cd.dodge <= 0 && r < 0.35 + 0.35 * lvl ? 'dodge' : 'brace';
       this.go('react');
     }
 
@@ -62,7 +71,7 @@ export class Brain {
         it.move.copy(radial).add(tangent).add(edgePull);
         const aligned = me.facing.dot(dirTo) > 0.97;
         // Charge more eagerly when they're near the edge and you're on the inside.
-        const keen = (opR > RING_R - 1.6 && myR < opR ? 3 : 1) * (0.3 + 0.45 * lvl);
+        const keen = (opR > RING_R - 1.6 && myR < opR ? 1 + 2 * lvl : 1) * (0.08 + 0.67 * lvl);
         if (aligned && dist > 2 && dist < 5.2 && me.cd.charge <= 0 && myR < RING_R - 0.9 && Math.random() < keen * dt) {
           this.windFor = rand(0.3, 0.8);
           this.go('windup');
@@ -78,10 +87,10 @@ export class Brain {
         it.move.copy(dirTo).multiplyScalar(0.45).add(edgePull);
         if ((this.pushIn -= dt) <= 0 && dist < 2 && me.facing.dot(dirTo) > 0.7) {
           it.push = true;
-          this.pushIn = rand(0.45, 0.9) / (0.6 + 0.7 * lvl);
+          this.pushIn = rand(0.45, 0.9) / (0.3 + 1.0 * lvl);
         }
         // Backed up to the straw and being pressed: plant yourself.
-        if (myR > RING_R - 0.9 && op.facing.dot(dirTo.clone().negate()) > 0.7 && dist < 1.8) it.brace = true;
+        if (myR > RING_R - 0.9 && op.facing.dot(dirTo.clone().negate()) > 0.7 && dist < 1.8 && Math.random() < 0.25 + 0.75 * lvl) it.brace = true;
         if (op.state === 'brace' && Math.random() < 0.8 * dt) { this.keepDist = 3; this.go('stalk'); }
         if (dist > 2.4) this.go('stalk');
         if (me.balance > 65) this.go('recover');
@@ -95,6 +104,7 @@ export class Brain {
       }
     }
     if (it.move.length() > 1) it.move.normalize();
+    it.move.multiplyScalar(0.6 + 0.4 * lvl);   // easier opponents waddle about more slowly
     // Push away from the straw when idling near it, even mid-plan.
     if (myR > RING_R - 0.8 && !it.brace) it.move.add(inward.normalize().multiplyScalar(0.6)).clampLength(0, 1);
     return it;

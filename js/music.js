@@ -1,4 +1,4 @@
-// Roast Royale: background music. A gentle Japanese track on the menus, taiko drums in the ring,
+// Roast Royale: background music. A gentle Japanese track on the menus, taiko drums while a round is fought,
 // each looping, with a short crossfade between them. Browsers only allow audio once you've
 // clicked or pressed a key, so the music waits for that.
 const TRACKS = {
@@ -32,14 +32,16 @@ const MENU_PHASES = ['title', 'online', 'select'];
 // Call every frame with the game phase and the real time passed.
 export function updateMusic(phase, dt) {
   updateCrowd(phase, dt);
-  want = MENU_PHASES.includes(phase) ? 'menu' : 'fight';
+  // Menu music on the menus; the drums only while a round is being fought (not the build-up or the verdict).
+  want = MENU_PHASES.includes(phase) ? 'menu' : phase === 'fight' ? 'fight' : null;
   if (!unlocked) return;
   for (const [name, p] of Object.entries(players)) {
     const target = name === want ? 1 : 0;
-    p.level += Math.sign(target - p.level) * Math.min(Math.abs(target - p.level), dt / FADE);
+    const fade = name === 'fight' && target === 0 ? 0.5 : FADE;   // the drums stop quickly when the round ends
+    p.level += Math.sign(target - p.level) * Math.min(Math.abs(target - p.level), dt / fade);
     p.el.volume = p.level * p.max;
     if (p.level > 0 && p.el.paused) {
-      if (name === want && p.level <= dt / FADE + 1e-6) p.el.currentTime = 0;   // a fresh start each time it comes back in
+      if (name === want && p.level <= dt / FADE + 1e-6) p.el.currentTime = 0;   // each round's drums start from the top
       p.el.play().catch(() => {});
     } else if (p.level === 0 && !p.el.paused) {
       p.el.pause();

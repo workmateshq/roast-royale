@@ -28,6 +28,12 @@ addEventListener('contextmenu', (e) => { if (inputState.inGame) e.preventDefault
 // (So the push fires on release, once we know it wasn't a drag.)
 export const camDrag = { yaw: 0, pitch: 0, active: false };
 let down = null;
+// On a touch screen, a tap anywhere outside the menus counts as "continue".
+addEventListener('touchstart', (e) => {
+  ac();
+  if (e.target.closest && e.target.closest('.ui, button, input, a')) return;
+  pressed.start = true;
+}, { passive: true });
 addEventListener('mousedown', (e) => {
   ac();
   // Clicks on menus and buttons are theirs, not the game's.

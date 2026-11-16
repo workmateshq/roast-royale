@@ -660,10 +660,12 @@ function showDecision() {
   $('dec-winner').textContent = d.winner != null ? winnerLine(wrestlers[d.winner], 'winner') : 'No winner this time. The round will be fought again';
   $('dec-flavour').textContent = '';
   $('dec-tally').textContent = tally();
-  $('dec-cta').textContent = waitCta() || 'PRESS ANY KEY TO CONTINUE';
+  $('dec-cta').textContent = waitCta() || `${ANY_KEY} TO CONTINUE`;
   showScreen('decision');
 }
 
+// Phones and tablets get "tap" rather than "press any key".
+const ANY_KEY = matchMedia('(hover: none) and (pointer: coarse)').matches ? 'TAP' : 'PRESS ANY KEY';
 const CHAMPION_WAIT = 10;   // seconds on the champion screen
 function showChampion() {
   const champ = champion();
@@ -712,7 +714,7 @@ function updateFlow(real) {
     case 'champion': {
       // Back to choosing a chicken after 10 seconds (or sooner, with Enter).
       const left = Math.max(0, Math.ceil(CHAMPION_WAIT - game.phaseT));
-      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `PRESS ANY KEY TO CHOOSE AGAIN · ${left}`;
+      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `${ANY_KEY} TO CHOOSE AGAIN · ${left}`;
       if (!isGuest() && ((pressed.start && game.phaseT > 0.5) || game.phaseT >= CHAMPION_WAIT)) { flow({ kind: 'select' }); goSelect(); }
     }
       break;

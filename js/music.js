@@ -38,7 +38,7 @@ function tryAutoplay(dt) {
 let musicMuted = false;
 export function setMusicMuted(m) { musicMuted = m; }
 
-const MENU_PHASES = ['title', 'online', 'select'];
+const MENU_PHASES = ['title', 'select'];   // title is the home lobby
 
 // Call every frame with the game phase and the real time passed.
 export function updateMusic(phase, dt) {

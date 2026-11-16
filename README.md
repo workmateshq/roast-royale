@@ -11,7 +11,7 @@ python3 -m http.server 3970
 
 Then open http://localhost:3970.
 
-In a match, the buttons under the round name are Home (back to choosing chickens; online, for everyone in the ring), Music on/off and Sound effects on/off (incl. the announcer and the crowd). Your music and sound choices are remembered on your device. Online play uses a Metered TURN relay (set in `js/net/config.js`) for players who can't connect directly.
+In a match, the buttons under the round name are Home (against the CPU, back to choosing chickens; online, everyone back to the lobby, still in the ring), Music on/off and Sound effects on/off (incl. the announcer and the crowd). Your music and sound choices are remembered on your device. Online play uses a Metered TURN relay (set in `js/net/config.js`) for players who can't connect directly.
 
 ## Controls
 
@@ -28,8 +28,10 @@ Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 
 ## Modes and roster
 
-- **Versus CPU**: pick your chicken, the house picks a rival, best of three.
-- **Versus a mate**: 2 to 4 players in one ring, free-for-all. Create a ring to get a 4-letter code (or invite link) and send it to your mates, or join theirs. Link rooms work too: share https://zakrowling.github.io/roast-royale/mate and nobody needs a code. The first person to open it hosts and everyone else joins; if the host leaves, the next player takes over, so the ring stays open while anyone's in it (the online screen has a button for it as well). Any 2–16 letters, numbers or dashes work as a room name (`/roast-royale/<name>` or `?room=<name>`), and an embedding app can pass `?group=<session id>` to give each group its own private ring. Everyone wrestles at once as P1 to P4, in blue, red, green and gold mawashi (three or four start in a cross: P1 facing P2, P3 facing P4): a chicken that's pushed out or topples is out of that round, and the last chicken standing wins it. First to two round wins is the champion. The tournament starts once at least two are in the ring and everyone has readied up. The ring's creator hosts and runs the fight; the others send their controls and see the host's fight.
+The home screen is the lobby: a card with four player slots, P1 to P4 (blue, red, green and gold), showing who's in the ring.
+
+- **Versus CPU** (the button on the home screen, or Enter): pick your chicken, the house picks a rival, best of three.
+- **Online, 2 to 4 players**: **Create a ring** to get a 4-letter code (or invite link) and send it to your mates, or type theirs and **Join**. Once you're in a ring, the lobby shows the code and a Copy invite link button, and the host (whoever created it) presses **Start game with N players** once at least one mate has joined; everyone then chooses their chicken, and the tournament starts when they've all readied up. **Create or join a new room** leaves the ring; the select screen's Back to lobby (and Home during a fight) takes everyone in the ring back to the lobby. Link rooms work too: share https://zakrowling.github.io/roast-royale/mate and nobody needs a code; opening it (or the home screen's "Jump into the /mate ring") lands you straight in that ring's lobby. The first person to open it hosts and everyone else joins; if the host leaves, the next player takes over, so the ring stays open while anyone's in it. Any 2–16 letters, numbers or dashes work as a room name (`/roast-royale/<name>` or `?room=<name>`), and an embedding app can pass `?group=<session id>` to give each group its own private ring. Mates can join while the others are choosing chickens, but not mid-tournament. Everyone wrestles at once as P1 to P4, in their slot's mawashi (three or four start in a cross: P1 facing P2, P3 facing P4): a chicken that's pushed out or topples is out of that round, and the last chicken standing wins it. First to two round wins is the champion. The host runs the fight; the others send their controls and see the host's fight.
 
 | Chicken | Cook | Style |
 | --- | --- | --- |
@@ -56,6 +58,7 @@ Win a round by pushing your rival out of the ring (Yorikiri), or draining their 
 - `js/voice.js`: the announcer: spoken calls (hakkeyoi, nokotta, the winning technique, yūshō) and the chickens' names, compressed with a little hall reverb, from `assets/words/`.
 - `js/music.js`: looping background music (menus, and taiko only while a round is fought), plus crowd cheers at big moments and applause for the champion.
 - `js/roster.js`: the chickens to choose from and their stats.
+- `js/lobby.js`: the home screen's lobby slots (P1 to P4).
 - `js/select.js`: the choose-your-chicken screen.
 - `js/online.js`, `js/net/`: online play (PeerJS); `404.html` turns `/roast-royale/<name>` links into rooms.
 - `js/main.js`: camera, animation, HUD, select and tournament flow, online sync and the main loop.

@@ -6,6 +6,7 @@ import { emit, updateParticles, sfx, shake, view, updateFlashes, excite, setSfxM
 import { loadModel, poseChicken, debugRig, setSkin, renderPortraits } from './chicken.js';
 import { ROSTER, SLOTS } from './roster.js';
 import { buildRoster, setPortraits, renderSelect } from './select.js';
+import { buildSlots, renderSlots } from './lobby.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
@@ -21,7 +22,7 @@ const cam = { az: 0.6, dist: 13, el: 0.6, target: new THREE.Vector3(0, PLATFORM_
 function updateCamera(dt) {
   let wantDist = 12, wantEl = 0.42;
   const wantTarget = new THREE.Vector3(0, PLATFORM_H + 0.4, 0);
-  if (game.phase === 'title' || game.phase === 'online') {
+  if (game.phase === 'title') {
     cam.az += dt * 0.12;
   } else if (game.phase === 'select') {
     // Front-on to the contenders standing in a row in the ring (further back for three or four).
@@ -232,7 +233,8 @@ function framing() {
   return [m, alive[0] || them()];
 }
 const remoteIdle = () => ({ move: new V2(), charge: false, brace: false, push: false, dodge: false });
-const online = { net: null, players: [], remote: SLOTS.map(remoteIdle), sendIn: 0 };
+// hostId: the ring's host; link: entered by name (no HOST tag shown); connecting: a create/join/enter under way.
+const online = { net: null, players: [], hostId: null, link: false, connecting: false, remote: SLOTS.map(remoteIdle), sendIn: 0 };
 const isGuest = () => match.mode === 'online' && online.net && !online.net.isHost;
 // A chicken's name, with its colour if someone else in the ring picked the same one.
 const nameOf = (w) => (actives().some((o) => o !== w && o.kind === w.kind) ? `${w.kind.name} (${SLOTS[slotOf(w)].name})` : w.kind.name);
@@ -270,34 +272,86 @@ loadModel((text) => { $('load-note').textContent = text; }, () => {
 $('load-note').textContent = 'Preheating the oven...';
 
 // =====================================================================================
-// Screens: title (choose a mode), online (create or join a ring), select (choose a chicken)
+// Screens: title (the home lobby: create or join a ring, or play the CPU), select (choose a chicken)
 // =====================================================================================
-const SCREENS = ['title', 'online', 'select', 'decision'];
+const SCREENS = ['title', 'select', 'decision'];
 function showScreen(id) {
   SCREENS.forEach((s) => { $(s).hidden = s !== id; });
   $('hud').hidden = !!id;
   inputState.inGame = !id;
 }
 
-let titleFocus = 0;
-function focusTitle(i) {
-  titleFocus = (i + 2) % 2;
-  $('mode-cpu').classList.toggle('focus', titleFocus === 0);
-  $('mode-online').classList.toggle('focus', titleFocus === 1);
-}
-focusTitle(0);
-
+// Home, out of any ring (the lobby's setup view): leaves the ring you were in.
 function goTitle(note = '') {
-  if (match.mode === 'online' && online.net) online.net.leave();
-  online.players = [];
+  if ((match.mode === 'online' || online.connecting) && online.net) online.net.leave();
+  Object.assign(online, { players: [], hostId: null, link: false, connecting: false });
   match.mode = 'cpu';
   match.slot = 0;
+  match.room = null;
   setActive([0, 1]);
   game.phase = 'title';
+  game.timeScale = 1;
   showScreen('title');
-  $('load-note').textContent = note;
+  setStatus(note, !!note);
   history.replaceState(null, '', basePath());
+  renderLobby();
 }
+
+// Home, in a ring (the lobby's room view): everyone here stands in the ring behind the card.
+function goLobby() {
+  game.phase = 'title';
+  game.phaseT = 0;
+  game.timeScale = 1;
+  game.winner = null;
+  showScreen('title');
+  setStatus('');
+  setActive(online.players.length ? online.players.map((p) => p.slot - 1) : [match.slot]);
+  lineUp(match.active);
+  const picks = SLOTS.map(() => null);
+  for (const p of online.players) picks[p.slot - 1] = p.pick;
+  setKinds(picks);
+  renderLobby();
+}
+
+const inRoom = () => match.mode === 'online' && !!match.room;
+const canBegin = () => inRoom() && online.net.isHost && online.players.length >= 2;
+function setStatus(text, error = false) {
+  $('online-status').textContent = text;
+  $('online-status').classList.toggle('error', error);
+}
+
+function renderLobby() {
+  const room = inRoom();
+  $('setup-view').hidden = room;
+  $('room-view').hidden = !room;
+  $('start-cta').hidden = room;
+  const entries = SLOTS.map(() => null);
+  $('lobby-wait').hidden = !room || canBegin();
+  if (!room) {
+    entries[0] = { you: true, tag: '' };   // a preview of you as P1, before you're in a ring
+    renderSlots(entries);
+    return;
+  }
+  for (const p of online.players) {
+    const you = p.id === online.net.id;
+    entries[p.slot - 1] = { you, tag: !online.link && p.id === online.hostId ? '(HOST)' : '' };
+  }
+  renderSlots(entries);
+  $('room-code').textContent = match.room;
+  const n = online.players.length;
+  const host = online.players.find((p) => p.id === online.hostId);
+  // The host sees Start once a mate's in; until then (and for everyone else) a line under the slots says what's next.
+  $('start-btn').hidden = !canBegin();
+  $('start-btn').querySelector('b').textContent = `Start game with ${n} players`;
+  $('lobby-wait').textContent = online.net.isHost ? 'Waiting for mates to join…' : `Waiting for ${host ? pTag(host.slot - 1) : 'the host'} to start…`;
+}
+function beginRoom() {
+  if (!canBegin()) return;
+  sfx.clack();
+  preloadVoices();
+  online.net.send({ type: 'begin' });
+}
+buildSlots();
 
 function basePath() { return location.pathname.replace(/[^/]*$/, ''); }
 
@@ -312,8 +366,14 @@ buildRoster((i) => {
   sendPick();
   drawSelect();
 });
-$('select-back').addEventListener('click', () => { if (game.phase === 'select') goTitle(); });
+$('select-back').addEventListener('click', () => { if (game.phase === 'select') backFromSelect(); });
+// Online: everyone back to the lobby, still in the ring. Against the CPU: home.
+function backFromSelect() {
+  if (match.mode === 'online' && online.net) online.net.send({ type: 'lobby' });
+  else goTitle();
+}
 $('ready-btn').addEventListener('click', () => { if (game.phase === 'select') (sel.locked ? unlock : lockIn)(); });
+renderLobby();
 
 function goSelect() {
   game.phase = 'select';
@@ -322,6 +382,7 @@ function goSelect() {
   if (match.mode === 'cpu') sel.cpuI = 1 + ((Math.random() * (ROSTER.length - 1)) | 0);
   showScreen('select');
   $('room-bar').hidden = match.mode !== 'online';
+  $('select-code').textContent = match.room || '';
   if (match.mode === 'cpu') setActive([0, 1]);
   game.winner = null;
   game.results = [];
@@ -686,34 +747,55 @@ function unpackW(w, a) {
 function onLobby(payload) {
   const left = online.players.some((p) => !payload.players.some((q) => q.id === p.id));
   online.players = payload.players;
+  online.hostId = payload.hostId;
   const mine = payload.players.find((p) => p.id === online.net.id);
   if (mine) match.slot = mine.slot - 1;
   match.room = payload.roomCode;
-  $('room-code').textContent = payload.roomCode;
+  $('select-code').textContent = payload.roomCode;
   history.replaceState(null, '', `${basePath()}?room=${encodeURIComponent(payload.roomCode.toLowerCase())}`);
-  const inMatch = !['title', 'online', 'select'].includes(game.phase);
-  // Someone left mid-tournament (the room has gone back to choosing): everyone back to the select screen.
-  if (inMatch && (payload.players.length < 2 || (left && !payload.started))) {
-    callout(payload.players.length < 2 ? 'YOUR MATE HAS LEFT<small>THE RING AWAITS A NEW CHALLENGER</small>' : 'A MATE HAS LEFT<small>CHOOSE YOUR CHICKENS AGAIN</small>', 2.4);
-    goSelect();
+  if (game.phase === 'title') {
+    // Whoever's in the ring stands in it, behind the lobby card.
+    const slots = payload.players.map((p) => p.slot - 1).sort((x, y) => x - y);
+    if (slots.length && slots.join() !== match.active.join()) goLobby();
+    else renderLobby();
+    if (left) setStatus('A mate has left the ring.');
+    return;
+  }
+  // Home, Back to lobby, or a mate left while choosing or fighting: everyone back to the lobby.
+  if (payload.phase === 'lobby') {
+    goLobby();
+    if (left) setStatus('A mate has left the ring.');
     return;
   }
   if (game.phase === 'select') {
     if (mine) { sel.i = mine.pick; sel.locked = mine.locked; }
     drawSelect();
     // Everyone (two to four) locked in: the host starts the tournament.
-    if (online.net.isHost && payload.players.length >= 2 && payload.players.every((p) => p.locked) && !payload.started) online.net.start();
+    if (online.net.isHost && payload.players.length >= 2 && payload.players.every((p) => p.locked) && payload.phase === 'select') online.net.start();
   }
 }
 
+// Into a ring (created, joined by code, or entered by link): the home lobby's room view, or straight
+// to choosing chickens if the others already are.
 function joined(res) {
-  if (!res.ok) { $('online-status').textContent = res.error || "Couldn't get into the ring."; $('online-status').classList.add('error'); return; }
+  if (!online.connecting) return;
+  online.connecting = false;
+  if (!res.ok) { online.link = false; setStatus(res.error || "Couldn't get into the ring.", true); history.replaceState(null, '', basePath()); return; }
   match.mode = 'online';
-  $('online-status').textContent = '';
+  setStatus('');
   const mine = res.players.find((p) => p.id === online.net.id);
   if (mine) Object.assign(sel, { i: mine.pick % ROSTER.length, locked: false });
   onLobby(res);
-  goSelect();
+  if (res.phase === 'select') goSelect();
+  else goLobby();
+}
+// Start connecting: link is true for rooms entered by name (/mate, ?room=, ?group=), which show no HOST tag.
+function connect(text, link, go) {
+  if (!online.net) { setStatus("Online play needs an internet connection (PeerJS couldn't load).", true); return; }
+  preloadVoices();
+  Object.assign(online, { connecting: true, link });
+  setStatus(text);
+  go(joined);
 }
 
 online.net = createOnline({
@@ -744,9 +826,11 @@ online.net = createOnline({
     if (m.ph === 'fight' && game.phase === 'ready') { game.phase = 'fight'; game.cues.forEach((c) => { if (!c.done) { c.done = true; c.fn(); } }); }
   },
   flow: (f) => {
-    // Everyone (host included) follows a Home press back to choosing chickens; the rest is the host's to send.
+    // Everyone (host included) follows the lobby's Start on to choosing chickens, and Home / Back to
+    // lobby back to the lobby; the rest is the host's to send.
+    if (f.kind === 'lobby') { if (game.phase !== 'title') goLobby(); return; }
     if (f.kind === 'select' && f.by) { if (game.phase !== 'select') goSelect(); return; }
-    if (!isGuest()) return;
+    if (!isGuest() || game.phase === 'title') return;
     if (f.kind === 'bout') {
       if (Array.isArray(f.active)) setActive(f.active);
       setKinds(f.picks);
@@ -762,9 +846,14 @@ online.net = createOnline({
       if (game.phase !== 'select') goSelect();
     }
   },
-  status: (text) => { if (game.phase === 'online') $('online-status').textContent = text; },
-  reconnecting: () => { callout('THE HOST HAS LEFT<small>RECONNECTING...</small>', 2); },
-  rejoined: (res) => { if (res.ok) { onLobby(res); goSelect(); } },
+  status: (text) => { if (game.phase === 'title' && online.connecting) setStatus(text); },
+  reconnecting: () => { callout('THE HOST HAS LEFT<small>RECONNECTING...</small>', 2); if (game.phase === 'title') setStatus('The host left. Reconnecting...'); },
+  rejoined: (res) => {
+    if (!res.ok || match.mode !== 'online') return;
+    onLobby(res);
+    if (res.phase === 'select') goSelect(); else goLobby();
+    setStatus('The host left. A new host has the ring.');
+  },
   disconnect: (reason) => { if (match.mode === 'online') goTitle(reason || 'Disconnected from the ring.'); },
 });
 
@@ -792,39 +881,33 @@ function sendSnap(real) {
 // Menus: keyboard, mouse and gamepad
 // =====================================================================================
 function chooseCpu() {
+  if (inRoom()) return;
+  if (online.connecting) goTitle();   // (calls off a ring still connecting)
   sfx.clack();
   preloadVoices();
   match.mode = 'cpu';
   match.slot = 0;
   goSelect();
 }
-function chooseOnline() {
-  sfx.clack();
-  preloadVoices();
-  if (!online.net) { $('load-note').textContent = "Online play needs an internet connection (PeerJS couldn't load)."; return; }
-  game.phase = 'online';
-  showScreen('online');
-  $('online-status').textContent = '';
-  $('online-status').classList.remove('error');
-  setTimeout(() => $('code-input').focus(), 50);
+// Enter (or a gamepad's Start) on the home screen: the CPU, or in a ring, the host's Start.
+function homeStart() {
+  if (inRoom()) beginRoom();
+  else if (!online.connecting) chooseCpu();
 }
-function busy(text) { $('online-status').classList.remove('error'); $('online-status').textContent = text; }
 $('mode-cpu').addEventListener('click', chooseCpu);
-$('mode-online').addEventListener('click', chooseOnline);
-$('mode-cpu').addEventListener('mouseenter', () => focusTitle(0));
-$('mode-online').addEventListener('mouseenter', () => focusTitle(1));
-$('create-btn').addEventListener('click', () => { busy('Building the ring...'); online.net.create(joined); });
+$('create-btn').addEventListener('click', () => { sfx.clack(); connect('Building the ring...', false, (ack) => online.net.create(ack)); });
 $('join-btn').addEventListener('click', () => {
   const code = $('code-input').value.trim().toUpperCase();
-  if (!/^[A-Z]{4}$/.test(code)) { $('online-status').textContent = 'Ring codes are 4 letters.'; $('online-status').classList.add('error'); return; }
-  busy('Looking for the ring...');
-  online.net.join(code, joined);
+  if (!/^[A-Z]{4}$/.test(code)) { setStatus('Ring codes are 4 letters.', true); return; }
+  sfx.clack();
+  connect('Looking for the ring...', false, (ack) => online.net.join(code, ack));
 });
-$('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); $('join-btn').click(); } });
-$('online-back').addEventListener('click', () => goTitle());
+$('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); $('join-btn').click(); } });
+$('start-btn').addEventListener('click', beginRoom);
+$('home-btn').addEventListener('click', () => { sfx.clack(); goTitle(); });
 
 // ---------- In the HUD: home, music and sound effects ----------
-// Home ends the match and goes back to choosing chickens (online: for everyone, still in the ring).
+// Home ends the match: online, everyone back to the lobby (still in the ring); against the CPU, back to choosing chickens.
 $('game-home').addEventListener('click', (e) => {
   if (e.detail) e.currentTarget.blur();
   if (match.mode === 'online' && online.net) online.net.send({ type: 'home' });
@@ -854,7 +937,7 @@ function applySoundPrefs() {
 });
 applySoundPrefs();
 // The permanent link room: everyone who opens /roast-royale/mate lands in the same ring.
-$('mate-room').addEventListener('click', () => { busy('Entering the ring...'); online.net.enter('mate', joined); });
+$('mate-room').addEventListener('click', () => { sfx.clack(); connect('Entering the ring...', true, (ack) => online.net.enter('mate', ack)); });
 $('copy-link').addEventListener('click', async () => {
   const link = `${location.origin}${basePath()}${(match.room || '').toLowerCase()}`;
   try { await navigator.clipboard.writeText(link); } catch { /* copied below */ }
@@ -866,19 +949,17 @@ addEventListener('keydown', (e) => {
   if (POSE || (e.target && e.target.tagName === 'INPUT')) return;
   const k = e.key;
   // Menus handle Enter themselves (so choosing a mode doesn't also lock in a chicken).
-  if (k === 'Enter' && ['title', 'online', 'select'].includes(game.phase)) pressed.start = false;   // (input.js's listener runs first)
+  if (k === 'Enter' && ['title', 'select'].includes(game.phase)) pressed.start = false;   // (input.js's listener runs first)
   // On the result screens, any key moves on (not a key still held down from the fight).
   if ((game.phase === 'screen' || game.phase === 'champion') && !e.repeat && !['Shift', 'Control', 'Alt', 'Meta'].includes(k)) pressed.start = true;
   if (game.phase === 'title') {
-    if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'w' || k === 's' || k === 'ArrowLeft' || k === 'ArrowRight') { focusTitle(titleFocus + 1); e.preventDefault(); }
-    if (k === 'Enter') (titleFocus === 0 ? chooseCpu : chooseOnline)();
-  } else if (game.phase === 'online') {
-    if (k === 'Escape') goTitle();
+    // (Enter on a focused button just presses that button.)
+    if (k === 'Enter' && !e.repeat && !(e.target && e.target.tagName === 'BUTTON')) homeStart();
   } else if (game.phase === 'select') {
     if (k === 'ArrowLeft' || k === 'a' || k === 'A') moveCursor(-1);
     else if (k === 'ArrowRight' || k === 'd' || k === 'D') moveCursor(1);
     else if (k === 'Enter' || k === ' ') { e.preventDefault(); lockIn(); }
-    else if (k === 'Escape' && !unlock()) goTitle();
+    else if (k === 'Escape' && !unlock()) backFromSelect();
   }
 });
 
@@ -886,11 +967,9 @@ addEventListener('keydown', (e) => {
 {
   const requested = _q.get('room') || groupRoom(_q.get('group'));
   if (requested && online.net && !POSE) {
-    if (!online.net.normalise(requested)) $('load-note').textContent = 'Ring names are 2-16 letters, numbers or dashes.';
+    if (!online.net.normalise(requested)) { setStatus('Ring names are 2-16 letters, numbers or dashes.', true); history.replaceState(null, '', basePath()); }
     else {
-      chooseOnline();
-      busy('Entering the ring...');
-      online.net.enter(requested, joined);
+      connect('Entering the ring...', true, (ack) => online.net.enter(requested, ack));
     }
   }
 }
@@ -922,7 +1001,7 @@ function tick(now, draw) {
   last = now;
   game.realT += real;
   pollPad();
-  if (game.phase === 'title' && pressed.start && !POSE) { pressed.start = false; (titleFocus === 0 ? chooseCpu : chooseOnline)(); }
+  if (game.phase === 'title' && pressed.start && !POSE) { pressed.start = false; homeStart(); }
   if (game.phase === 'select' && pressed.start) { pressed.start = false; lockIn(); }
   updateFlow(real);
   updateMusic(game.phase, real);
@@ -947,7 +1026,7 @@ function tick(now, draw) {
       clock.t += k;
     }
   } else {
-    const simulate = ['fight', 'decision', 'screen', 'champion', 'title', 'online'].includes(game.phase);
+    const simulate = ['fight', 'decision', 'screen', 'champion', 'title'].includes(game.phase);
     if (simulate) {
       acc += real * game.timeScale;
       let steps = 0;

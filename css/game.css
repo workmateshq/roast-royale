@@ -104,8 +104,14 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 #decision .tally { margin-top: 14px; font-size: 18px; letter-spacing: 0.2em; }
 @media (max-width: 720px) { .hints { display: none; } .meter { width: 40vw; padding: 8px 10px; } .bout .name { font-size: 13px; } }
 
-/* ---------- Title: choose a mode ---------- */
-.modes { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+/* ---------- Home: the lobby ---------- */
+#title { justify-content: flex-start; padding-top: max(24px, 5vh); padding-bottom: 12px; overflow-y: auto; }
+#title > :first-child { margin-top: auto; }
+#title > .fine { position: static; margin-top: auto; padding-top: 14px; }   /* in the flow, so it never sits under the card on short screens */
+#title .title { font-size: clamp(44px, min(9vw, 11vh), 130px); }
+#title .rule { margin: min(18px, 2vh) auto; }
+#title .tagline { font-size: clamp(15px, min(1.8vw, 2.6vh), 22px); }
+#title .tagline.sub { font-size: 15px; color: var(--muted); margin-top: 4px; }
 .mode-btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 240px; padding: 14px 22px;
   background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
@@ -113,30 +119,63 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 }
 .mode-btn b { font-family: var(--serif); font-size: 20px; letter-spacing: 0.16em; color: var(--gold); }
 .mode-btn span { font-size: 14px; color: var(--muted); letter-spacing: 0.05em; }
-.mode-btn:hover, .mode-btn.focus { border-color: var(--gold); background: rgba(60, 38, 18, 0.85); }
-.mode-btn.focus { box-shadow: 0 0 0 2px var(--gold), 0 0 24px rgba(232, 194, 122, 0.35); }
+.mode-btn:hover { border-color: var(--gold); background: rgba(60, 38, 18, 0.85); }
 .mode-btn.small { min-width: 0; padding: 8px 16px; }
 .mode-btn.small b { font-size: 15px; }
-.cta.small { font-size: clamp(13px, 1.3vw, 16px); }
+.mode-btn.primary { border-color: var(--gold); background: linear-gradient(180deg, #f3d48e, #c99a45); box-shadow: 0 0 18px rgba(232, 194, 122, 0.3); }
+.mode-btn.primary:hover { background: linear-gradient(180deg, #fbe2a8, #d6a750); }
+.mode-btn.primary b { color: #2a1a0c; }
+.mode-btn.primary span { color: #4a3418; }
+.mode-btn:disabled, .mode-btn:disabled:hover { cursor: default; border-color: var(--line); background: rgba(18, 12, 8, 0.6); box-shadow: none; }
+.mode-btn:disabled b { color: var(--muted); }
+.cta.small { font-size: clamp(13px, 1.3vw, 16px); margin-top: 14px; }
 
-/* ---------- Online ---------- */
-.title.mid { font-size: clamp(36px, 6vw, 72px); }
-.online-card { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(420px, 92vw); }
-.online-card > .mode-btn { width: 100%; }
+.lobby-card {
+  display: flex; flex-direction: column; gap: 12px; width: min(560px, 94vw); margin-top: min(20px, 2.4vh); padding: 16px 18px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(4px);
+}
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.slot {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 7px 6px 5px;
+  border: 2px dashed var(--line); border-radius: 12px; color: var(--muted); transition: border-color 0.2s, box-shadow 0.2s;
+}
+.slot.filled { border-style: solid; border-color: var(--slot-glow); color: var(--slot-tag); background: rgba(0, 0, 0, 0.25); }
+.slot.you { box-shadow: 0 0 16px -4px var(--slot-glow), inset 0 0 12px -6px var(--slot-glow); }
+.slot-label { font-family: var(--serif); font-weight: 800; font-size: 15px; letter-spacing: 0.14em; }
+.slot-icon { width: 52px; height: 52px; border-radius: 50%; border: 2px dashed var(--line); opacity: 0.6; }
+/* The roast chicken icon, tinted in the slot's colour, on a soft ring of it. */
+.slot.filled .slot-icon { border: none; opacity: 1; position: relative;
+  background: radial-gradient(circle, color-mix(in srgb, var(--slot-glow) 22%, transparent) 60%, transparent 71%); }
+.slot.filled .slot-icon::after { content: ''; position: absolute; inset: 7px; background: var(--slot-tag);
+  -webkit-mask: url(../assets/roast-chicken.svg) center / contain no-repeat; mask: url(../assets/roast-chicken.svg) center / contain no-repeat; }
+.lobby-wait { margin: -2px 0 0; font-size: 15px; letter-spacing: 0.08em; color: var(--muted); }
+.slot-name { font-weight: 700; font-size: 15px; letter-spacing: 0.14em; white-space: nowrap; }
+.slot-tag { min-height: 1.3em; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: var(--gold); white-space: nowrap; }
+.lobby-view { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.lobby-view > .mode-btn { width: 100%; }
+.lobby-view > .mode-btn.primary { padding: 12px 22px; }
+.cpu-btn { margin-top: 4px; padding: 10px 22px; }
+.cpu-btn b { font-size: 18px; }
+#start-btn b { font-size: 19px; letter-spacing: 0.08em; }
+.lobby-card .room-bar { width: 100%; }
 .or { color: var(--muted); font-family: var(--serif); letter-spacing: 0.1em; }
 .join-row { display: flex; gap: 10px; width: 100%; align-items: stretch; }
 .join-row .mode-btn { justify-content: center; padding: 0 22px; }
 .join-row .mode-btn b { letter-spacing: 0.16em; margin-right: -0.16em; }   /* trailing tracking would push the word off-centre */
 #code-input {
-  flex: 1; min-width: 0; padding: 10px; font-family: var(--serif); font-size: 30px; font-weight: 800; letter-spacing: 0.4em; text-indent: 0.4em; text-align: center;
+  flex: 1; min-width: 0; padding: 8px 10px; font-family: var(--serif); font-size: 28px; font-weight: 800; letter-spacing: 0.4em; text-indent: 0.4em; text-align: center;
   text-transform: uppercase; color: var(--ink); background: rgba(18, 12, 8, 0.85); border: 1px solid var(--line); border-radius: 12px;
   user-select: text; -webkit-user-select: text;
 }
 #code-input:focus { outline: none; border-color: var(--gold); }
 .status { min-height: 1.3em; margin: 0; color: var(--gold); letter-spacing: 0.05em; }
+.lobby-card .status:empty { display: none; }
 .status.error { color: #ff9a7a; }
 .link-btn { background: none; border: none; color: var(--muted); font-family: var(--arcade); font-size: 15px; letter-spacing: 0.1em; cursor: pointer; }
 .link-btn:hover { color: var(--ink); }
+.link-btn.outline { width: 100%; padding: 9px 18px; border: 1px solid var(--line); border-radius: 12px; }
+.link-btn.outline:hover { border-color: var(--gold); }
+@media (max-width: 520px) { .slot-name { font-size: 13px; letter-spacing: 0.06em; } .slot-tag { font-size: 10px; } .mode-btn { min-width: 0; } }
 
 /* ---------- Choose your chicken ---------- */
 .screen.select { justify-content: space-between; padding: 22px 18px 18px;
@@ -169,6 +208,8 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .select-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .room-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; letter-spacing: 0.16em; font-size: 13px; color: var(--muted); }
 .room-bar code { font-family: var(--serif); font-weight: 800; font-size: 26px; letter-spacing: 0.3em; color: var(--ink); }
+.room-bar.compact { padding: 5px 14px; gap: 10px; }
+.room-bar.compact code { font-size: 18px; letter-spacing: 0.24em; }
 .room-status { color: var(--gold); letter-spacing: 0.06em; font-size: 14px; }
 .roster { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .tile {
@@ -177,11 +218,12 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 }
 .tile .pic { aspect-ratio: 4 / 5; background: var(--swatch) center / cover no-repeat; }
 .tile .tname { font-size: 13px; letter-spacing: 0.08em; font-weight: 700; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile .badge { position: absolute; top: 6px; padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; display: none; }
-.tile .b-0 { left: 6px; background: #2f4fbf; }
-.tile .b-1 { right: 6px; background: #b8283f; }
-.tile .b-2 { left: 6px; top: 30px; background: #2f9a4a; }
-.tile .b-3 { right: 6px; top: 30px; background: #d9b62f; color: #2a1a0c; }
+.tile .badges { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.tile .badge { padding: 1px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; display: none; }
+.tile .b-0 { background: #2f4fbf; }
+.tile .b-1 { background: #b8283f; }
+.tile .b-2 { background: #2f9a4a; }
+.tile .b-3 { background: #d9b62f; color: #2a1a0c; }
 .tile.cur-0 { border-color: #4f72ff; box-shadow: 0 0 18px rgba(79, 114, 255, 0.55); }
 .tile.cur-1 { border-color: #ff4f6a; box-shadow: 0 0 18px rgba(255, 79, 106, 0.55); }
 .tile.cur-2 { border-color: #4fdc72; box-shadow: 0 0 18px rgba(79, 220, 114, 0.55); }

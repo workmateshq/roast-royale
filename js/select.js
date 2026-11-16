@@ -22,7 +22,7 @@ export function buildRoster(onClick) {
     t.type = 'button';
     t.className = 'tile';
     t.style.setProperty('--swatch', SWATCH[c.skin]);
-    t.innerHTML = `<div class="pic"></div><div class="tname"></div>${SLOTS.map((_, s) => `<span class="badge b-${s}"></span>`).join('')}`;
+    t.innerHTML = `<div class="pic"></div><div class="tname"></div><div class="badges">${SLOTS.map((_, s) => `<span class="badge b-${s}"></span>`).join('')}</div>`;
     t.querySelector('.tname').textContent = c.name;
     t.addEventListener('click', () => onClick(i));
     box.append(t);

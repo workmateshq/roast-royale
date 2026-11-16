@@ -560,8 +560,11 @@ function startBout() {
   $('bout-name').textContent = boutTitle();
   const throwSalt = (w) => {
     sfx.salt();
-    const dir = new THREE.Vector3(-w.pos.x, 0, -w.pos.y).normalize().multiplyScalar(0.6);
-    emit(new THREE.Vector3(w.pos.x, PLATFORM_H + 1.1, w.pos.y), 40, { colour: 0xffffff, speed: 1.2, up: 2.4, life: 1.4, grav: 5, drag: 0.6, size: 0.045, dir });
+    // Thrown from just in front of the chicken at its shoulder height (Megarōsuto is twice as tall and broad).
+    const s = w.size, ahead = new THREE.Vector3(-w.pos.x, 0, -w.pos.y).normalize();
+    const dir = ahead.clone().multiplyScalar(0.6 * s);
+    const from = new THREE.Vector3(w.pos.x, PLATFORM_H + 1.1 * s, w.pos.y).addScaledVector(ahead, 0.45 * s);
+    emit(from, 40 * Math.min(2, s), { colour: 0xffffff, speed: 1.2 * s, up: 2.4 * Math.sqrt(s), life: 1.4, grav: 5, drag: 0.6, size: 0.045 * Math.sqrt(s), dir });
   };
   game.cues = [
     { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`<span class="jp">${['一', '二', '三', '四', '五'][Math.min(game.bout, 5) - 1]}番</span>ROUND ${game.bout}<small>${match.mode === 'solo' ? `STAGE ${solo.stage + 1} · ` : ''}${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },

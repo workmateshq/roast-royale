@@ -206,7 +206,16 @@ function basePath() { return location.pathname.replace(/[^/]*$/, ''); }
 
 // ---------- Choose your chicken ----------
 const sel = { i: 0, locked: false, cpuI: 1, cpuLocked: false, cpuT: 0, startIn: 0 };
-buildRoster((i) => { if (game.phase !== 'select') return; if (sel.locked && i === sel.i) return; sel.i = i; sel.locked = false; lockIn(); });
+// Clicking a chicken chooses it; READY (or Enter) confirms. Changing your mind un-readies you.
+buildRoster((i) => {
+  if (game.phase !== 'select' || i === sel.i) return;
+  sel.i = i;
+  sel.locked = false;
+  sfx.clack();
+  sendPick();
+  drawSelect();
+});
+$('ready-btn').addEventListener('click', () => { if (game.phase === 'select') (sel.locked ? unlock : lockIn)(); });
 
 function goSelect() {
   game.phase = 'select';
@@ -226,7 +235,7 @@ function goSelect() {
 }
 
 function moveCursor(d) {
-  if (sel.locked) return;
+  sel.locked = false;
   sel.i = (sel.i + d + ROSTER.length) % ROSTER.length;
   sfx.clack();
   sendPick();
@@ -238,7 +247,7 @@ function lockIn() {
   if (match.mode === 'online' && online.players.length < 2) { $('room-status').textContent = 'Waiting for your mate to arrive...'; }
   sel.locked = true;
   sfx.taiko();
-  if (match.mode === 'cpu') sel.cpuT = 0;
+  if (match.mode === 'cpu') { sel.cpuT = 0; if (sel.cpuLocked) sel.startIn = 1.3; }
   sendPick();
   drawSelect();
 }
@@ -266,6 +275,8 @@ function drawSelect() {
   }
   const sides = match.side === 'p' ? { p: mine, a: other } : { p: other, a: mine };
   renderSelect(sides);
+  $('ready-btn').classList.toggle('on', sel.locked);
+  $('ready-btn').querySelector('b').textContent = sel.locked ? 'READY ✓' : 'READY';
   // The two chickens in the ring wear the picks (and crouch once locked in).
   const blue = sides.p.waiting ? player.kind : ROSTER[sides.p.i];
   const red = sides.a.waiting ? cpu.kind : ROSTER[sides.a.i];

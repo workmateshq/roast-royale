@@ -49,13 +49,6 @@
     <h1 class="title">ROAST ROYALE</h1>
     <div class="rule"></div>
     <p class="tagline">The Grand Rotisserie Tournament. Two athletes. One ring. No heads.</p>
-    <div class="controls">
-      <div><b>WASD / Stick</b><span>Waddle. You are heavy; plan your turns.</span></div>
-      <div><b>Space (hold)</b><span>Drumstick Charge. Release to launch. Do not miss.</span></div>
-      <div><b>Left Click</b><span>Breast Push. A dignified shove.</span></div>
-      <div><b>Right Click (hold)</b><span>Chicken Brace. Plant yourself. Resist.</span></div>
-      <div><b>Shift</b><span>Wing Dodge. Let them sail past.</span></div>
-    </div>
     <p class="tagline" style="font-size:15px;color:var(--muted)">Push your rival out of the ring, or drain their balance until they topple. Best of three rounds.</p>
     <div class="modes ui">
       <button type="button" class="mode-btn" id="mode-cpu"><b>VERSUS CPU</b><span>Take on the house champion</span></button>
@@ -86,7 +79,8 @@
     <div class="select-bottom">
       <div class="room-bar" id="room-bar" hidden><span>RING CODE</span><code id="room-code">----</code><button type="button" class="mode-btn small" id="copy-link"><b>COPY INVITE LINK</b></button><span class="room-status" id="room-status"></span></div>
       <div class="roster" id="roster"></div>
-      <div class="select-foot">← → CHOOSE · ENTER LOCK IN · ESC BACK</div>
+      <button type="button" class="mode-btn ready-btn" id="ready-btn"><b>READY</b></button>
+      <div class="select-foot">← → CHOOSE · ENTER READY · ESC BACK</div>
     </div>
   </div>
 

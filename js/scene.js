@@ -115,6 +115,7 @@ softDot.wrapS = softDot.wrapT = THREE.ClampToEdgeWrapping;
 // The arena: hall floor, raised clay platform with a sand top, straw-bale ring (tawara),
 // starting lines (shikiri-sen), the hanging roof with its four tassels, and festival banners.
 // =====================================================================================
+export const BANNER_R = 13.5;
 const arena = new THREE.Group();
 const banners = [];   // { group, mats } for fading out the ones the camera gets close to
 scene.add(arena);
@@ -129,7 +130,7 @@ scene.add(arena);
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHall = (modelMatrix * vec4(transformed, 1.0)).xz;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vHall;')
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb *= 1.0 - smoothstep(7.6, 10.0, length(vHall));');
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb *= 1.0 - smoothstep(11.0, 15.0, length(vHall));');
   };
   arena.add(floor);
 
@@ -234,10 +235,10 @@ scene.add(arena);
     tex.repeat.set(1, 1);
     const a = (i / 14) * Math.PI * 2;
     const nobori = new THREE.Group();
-    nobori.position.set(Math.sin(a) * 9.4, 0, Math.cos(a) * 9.4);   // just off the platform, at the edge of the light
+    nobori.position.set(Math.sin(a) * BANNER_R, 0, Math.cos(a) * BANNER_R);   // a ring of banners round the hall, beyond where the camera goes
     nobori.lookAt(0, 0, 0);
     // The banner hangs from a crossbar on a tall pole, its foot a little off the floor.
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 4.4), new THREE.MeshStandardMaterial({ map: tex, color: 0x9a9a9a, roughness: 0.9, side: THREE.DoubleSide }));
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 4.4), new THREE.MeshStandardMaterial({ map: tex, color: 0xd0d0d0, roughness: 0.9, side: THREE.DoubleSide }));
     flag.position.set(0, 2.85, 0);
     flag.castShadow = true;
     nobori.add(flag);
@@ -266,8 +267,8 @@ scene.add(arena);
     banners.push({ group: nobori, mats });
   }
   // A soft wash from above that reaches the banners round the ring, but not the hall beyond them.
-  const glow = new THREE.SpotLight(0xffc98a, 30, 13, 0.75, 0.5, 1.4);
-  glow.position.set(0, 10, 0);
+  const glow = new THREE.SpotLight(0xffc98a, 90, 26, 1.12, 0.35, 1.3);
+  glow.position.set(0, 11, 0);
   glow.target.position.set(0, 0, 0);
   arena.add(glow, glow.target);
 }

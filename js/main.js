@@ -1,7 +1,7 @@
 // Roast Royale: camera, animation, HUD, the tournament flow and the main loop.
 import * as THREE from 'three';
 import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES, V2, rand, wrap, clamp, smoothstep } from './config.js';
-import { renderer, scene, camera, canvas, updateBanners } from './scene.js';
+import { renderer, scene, camera, canvas, updateBanners, BANNER_R } from './scene.js';
 import { emit, updateParticles, sfx, shake, view, updateFlashes, excite } from './effects.js';
 import { loadModel, poseChicken, debugRig, setSkin, renderPortraits } from './chicken.js';
 import { ROSTER } from './roster.js';
@@ -53,6 +53,9 @@ function updateCamera(dt) {
     cam.target.y + Math.sin(cam.el) * cam.dist,
     cam.target.z + Math.cos(cam.az) * Math.cos(cam.el) * cam.dist,
   );
+  // Never out among the banners: the camera stays well inside their ring.
+  const out = Math.hypot(camera.position.x, camera.position.z), maxR = BANNER_R - 2;
+  if (out > maxR) { camera.position.x *= maxR / out; camera.position.z *= maxR / out; }
   if (view.shake > 0.001) {
     camera.position.x += rand(-1, 1) * view.shake;
     camera.position.y += rand(-1, 1) * view.shake * 0.6;

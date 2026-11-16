@@ -146,7 +146,7 @@ export const sfx = {
 // =====================================================================================
 // Six of them light the hall around them; the rest are just the flash, far off in the crowd.
 const flashes = [];
-for (let i = 0; i < 40; i++) {
+for (let i = 0; i < 90; i++) {
   const light = i < 6 ? new THREE.PointLight(0xe8f0ff, 0, 7, 1.6) : new THREE.Object3D();
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0 }));
   sprite.scale.setScalar(0.5);
@@ -158,21 +158,21 @@ function popFlash() {
   // Mostly sprite-only flashes; now and then one that lights the hall.
   const pool = Math.random() < 0.25 ? flashes.slice(0, 6) : flashes.slice(6);
   const f = pool.find((q) => q.t >= 1) || pool[(Math.random() * pool.length) | 0];
-  const a = rand(0, Math.PI * 2), r = rand(11, 24);   // tiers of seats, rising away from the ring
-  f.light.position.set(Math.sin(a) * r, rand(0.6, 1.2) + (r - 11) * 0.35, Math.cos(a) * r);
+  const a = rand(0, Math.PI * 2), r = rand(15, 32);   // tiers of seats beyond the banners, rising away from the ring
+  f.light.position.set(Math.sin(a) * r, rand(0.6, 1.4) + (r - 15) * 0.4, Math.cos(a) * r);
   f.sprite.position.copy(f.light.position);
   f.t = 0;
 }
 export function excite(n = 6) { buzz = Math.min(30, buzz + n * 2); }
 export function updateFlashes(dt, intensity = 1) {
   nextFlash -= dt * intensity;
-  if (nextFlash <= 0) { popFlash(); nextFlash = rand(0.05, 0.45); }
+  if (nextFlash <= 0) { popFlash(); if (Math.random() < 0.35) popFlash(); nextFlash = rand(0.02, 0.2); }
   if (buzz > 0 && Math.random() < dt * 30) { popFlash(); buzz--; }
   for (const f of flashes) {
     f.t = Math.min(1, f.t + dt / 0.14);
     const k = f.t < 1 ? Math.pow(1 - f.t, 2) : 0;
     if (f.light.isLight) f.light.intensity = 26 * k;
     f.sprite.material.opacity = k;
-    f.sprite.scale.setScalar(0.35 + 0.4 * k);
+    f.sprite.scale.setScalar(0.6 + 0.9 * k);   // far off in the stands, so a little bigger
   }
 }

@@ -241,7 +241,7 @@ const remoteIdle = () => ({ move: new V2(), charge: false, brace: false, push: f
 const online = { net: null, players: [], hostId: null, link: false, connecting: false, remote: SLOTS.map(remoteIdle), sendIn: 0 };
 const isGuest = () => match.mode === 'online' && online.net && !online.net.isHost;
 // A chicken's name, with its colour if someone else in the ring picked the same one.
-const nameOf = (w) => (actives().some((o) => o !== w && o.kind === w.kind) ? `${w.kind.name} (${SLOTS[slotOf(w)].name})` : w.kind.name);
+const nameOf = (w) => (actives().some((o) => o !== w && o.kind.name === w.kind.name) ? `${w.kind.name} (${SLOTS[slotOf(w)].name})` : w.kind.name);
 const label = (w) => (w === me() ? 'YOU' : nameOf(w));
 function title(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
 // 'You are the winner', 'Kogeta is the champion'
@@ -761,6 +761,10 @@ function showChampion() {
     ? 'The Emperor\'s Cup is presented, with gravy. A new yokozuna of the rotisserie is crowned.'
     : `${champ.kind.name} takes the Emperor's Cup, as is tradition. Return when you are better seasoned.`;
   $('dec-tally').textContent = tally();
+  // Won the solo tournament (and the oven can go hotter): offer another, harder run.
+  const offer = youWon && match.mode === 'solo' && solo.tier < TIERS - 1;
+  $('dec-offer').hidden = !offer;
+  if (offer) $('dec-flavour').textContent += ' The rotisserie can turn hotter. Fancy a tougher tournament?';
   showScreen('decision');
   game.phase = 'champion';
   game.phaseT = 0;
@@ -777,7 +781,10 @@ function showChampion() {
 const STAGES = 8;
 const PLAN_WAIT = 3.5;        // seconds on the battle plan before the stage starts by itself
 const CONTINUE_WAIT = 10;     // seconds to decide to continue
-const solo = { stage: 0, order: [], climb: false, said: false };
+// tier: how hot the oven is for this run. 0 easy, 1 medium, 2 hard (internal only: the player only ever
+// sees 'a harder tournament' offered after winning one).
+const solo = { stage: 0, order: [], climb: false, said: false, tier: 0 };
+const TIERS = 3;
 // The rival for stage n (0-based): { pick, name, mirror, boss }.
 function stageRival(n) {
   if (n === 0) return { pick: sel.i, name: ROSTER[sel.i].name, mirror: true };
@@ -785,14 +792,29 @@ function stageRival(n) {
   const i = solo.order[n - 1];
   return { pick: i, name: ROSTER[i].name };
 }
-// The CPU gets sharper every stage: from a gentle 0.35 to full strength by stage 7 (and the boss).
-// A gentle start that gets properly hard: stage 1 ≈ 0.1, the middle stages ramp up, the last rival and the boss at full strength.
-const soloLevel = () => Math.min(1, 0.08 + 0.92 * Math.pow(solo.stage / (STAGES - 2), 1.6));
+// The CPU gets sharper every stage. Easy: a gentle start (≈0.1) ramping to full strength for the last rival
+// and the boss. Medium starts at a fair fight and climbs sooner. Hard is sharp from the first bout.
+const soloLevel = () => {
+  const p = Math.min(1, solo.stage / (STAGES - 2));
+  const curve = [0.08 + 0.92 * Math.pow(p, 1.6), 0.32 + 0.68 * Math.pow(p, 1.15), 0.68 + 0.32 * p][solo.tier] ?? 1;
+  return Math.min(1, curve);
+};
+// On hard, the rivals are a little heavier and hit a little harder too.
+const tierStats = (kind) => (solo.tier < 2 ? kind : { ...kind, stats: { ...kind.stats, mass: kind.stats.mass * 1.08, power: kind.stats.power * 1.1, take: kind.stats.take * 0.92 } });
 function shuffleRivals() {
   const others = ROSTER.map((_, i) => i).filter((i) => i !== sel.i);
   for (let k = others.length - 1; k > 0; k--) { const j = (Math.random() * (k + 1)) | 0; [others[k], others[j]] = [others[j], others[k]]; }
   solo.order = others;
 }
+function harderTournament() {
+  if (match.mode !== 'solo' || game.phase !== 'champion') return;
+  $('dec-offer').hidden = true;
+  solo.tier = Math.min(TIERS - 1, solo.tier + 1);
+  sfx.taiko(); sfx.taiko(0.18);
+  startSolo();
+}
+$('dec-harder').addEventListener('click', harderTournament);
+$('dec-home').addEventListener('click', () => { if (game.phase === 'champion') { $('dec-offer').hidden = true; goTitle(); } });
 function startSolo() {
   shuffleRivals();
   solo.stage = 0;
@@ -862,6 +884,7 @@ function startStage() {
   $('decision').classList.remove('continue');
   setActive([0, 1]);
   setKinds([sel.i, stageRival(solo.stage).pick]);
+  wrestlers[1].kind = tierStats(wrestlers[1].kind);
   beginTournament();
 }
 // A stage is decided: on up the plan, the Emperor's Cup, or continue?
@@ -919,6 +942,14 @@ function updateFlow(real) {
     case 'champion': {
       // Back to choosing a chicken (solo: home) after 10 seconds (or sooner, with Enter).
       const left = Math.max(0, Math.ceil(CHAMPION_WAIT - game.phaseT));
+      if (!$('dec-offer').hidden) {
+        // The harder-tournament offer waits a little longer for an answer; Enter takes it, the timer goes home.
+        const wait = CHAMPION_WAIT + 10, l2 = Math.max(0, Math.ceil(wait - game.phaseT));
+        $('dec-cta').textContent = `ENTER FOR A TOUGHER TOURNAMENT · ${l2}`;
+        if (pressed.start && game.phaseT > 0.5) harderTournament();
+        else if (game.phaseT >= wait) goTitle();
+        break;
+      }
       $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `${ANY_KEY} TO ${match.mode === 'solo' ? 'RETURN HOME' : 'CHOOSE AGAIN'} · ${left}`;
       if (!isGuest() && ((pressed.start && game.phaseT > 0.5) || game.phaseT >= CHAMPION_WAIT)) {
         if (match.mode === 'solo') goTitle();
@@ -1111,6 +1142,7 @@ function chooseSolo() {
   preloadVoices();
   match.mode = 'solo';
   match.slot = 0;
+  solo.tier = 0;
   goSelect();
 }
 // Enter (or a gamepad's Start) on the home screen: the solo tournament, or in a ring, the host's Start.

@@ -292,6 +292,9 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .plan-next { display: flex; flex-direction: column; gap: 2px; margin-top: min(10px, 1.2vh); font-family: var(--serif); font-weight: 800; letter-spacing: 0.14em; font-size: clamp(16px, 2.4vh, 22px); }
 .plan-next small { font-family: var(--arcade); font-weight: 600; font-size: 13px; color: var(--gold); letter-spacing: 0.18em; }
 .plan .cta { margin-top: 4px; }
+.dec-offer { display: flex; gap: 12px; justify-content: center; margin-top: 22px; }
+.dec-offer[hidden] { display: none; }
+.dec-offer .mode-btn { min-width: 260px; }
 @media (max-width: 640px) { .rung { width: 58vw; } .you-plate { display: none; } .plan-you { right: calc(100% + 18px); } }
 
 /* Continue? after losing a stage: the countdown, big. */

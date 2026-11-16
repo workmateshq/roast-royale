@@ -185,6 +185,9 @@ const sideOf = (w) => (w === player ? 'p' : 'a');
 const online = { net: null, players: [], remote: { move: new V2(), charge: false, brace: false, push: false, dodge: false }, sendIn: 0 };
 const isGuest = () => match.mode === 'online' && online.net && !online.net.isHost;
 const label = (w) => (w === me() ? 'YOU' : w.kind.name);
+const title = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+// 'You are the winner', 'Kogeta is the champion'
+const winnerLine = (w, what) => (w === me() ? `You are the ${what}` : `${title(w.kind.name)} is the ${what}`);
 const who = (w) => (w === me() ? 'YOU' : match.mode === 'online' ? 'YOUR MATE' : 'CPU');
 
 function setKinds(blue, red) {
@@ -476,7 +479,7 @@ function showDecision() {
   $('dec-kimarite').textContent = d.kimarite;
   $('dec-kanji').textContent = KANJI[d.kimarite] || '';
   say(d.kimarite, { interrupt: true });
-  $('dec-winner').textContent = d.winner ? `WINNER: ${label(d.winner === 'p' ? player : cpu)}` : 'NO DECISION';
+  $('dec-winner').textContent = d.winner ? winnerLine(d.winner === 'p' ? player : cpu, 'winner') : 'No winner this time. The round will be fought again';
   $('dec-flavour').textContent = '';
   $('dec-tally').textContent = tally();
   $('dec-cta').textContent = waitCta() || 'PRESS ANY KEY TO CONTINUE';
@@ -492,7 +495,7 @@ function showChampion() {
   $('dec-kimarite').textContent = 'YŪSHŌ';
   $('dec-kanji').textContent = KANJI['YŪSHŌ'];
   say('YŪSHŌ', { interrupt: true });
-  $('dec-winner').textContent = `CHAMPION: ${label(champ)}`;
+  $('dec-winner').textContent = winnerLine(champ, 'champion');
   $('dec-flavour').textContent = youWon
     ? 'The Emperor\'s Cup is presented, with gravy. A new yokozuna of the rotisserie is crowned.'
     : `${champ.kind.name} takes the Emperor's Cup, as is tradition. Return when you are better seasoned.`;

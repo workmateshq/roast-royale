@@ -70,9 +70,9 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .fine a { color: inherit; }
 #load-note { font-size: 13px; color: var(--muted); margin-top: 8px; letter-spacing: 0.1em; min-height: 1em; }
 
-#decision .kimarite { font-family: var(--serif); font-weight: 800; font-size: clamp(56px, 11vw, 150px); letter-spacing: 0.1em; margin: 0; color: var(--ink); text-shadow: 0 6px 30px #000; }
+#decision .kimarite { font-family: var(--serif); font-weight: 800; font-size: clamp(48px, 9vw, 130px); letter-spacing: 0.06em; max-width: 96vw; margin: 0; color: var(--ink); text-shadow: 0 6px 30px #000; }
 #decision .gloss { font-family: var(--serif); color: var(--gold); letter-spacing: 0.2em; font-size: clamp(14px, 1.6vw, 20px); }
-#decision .winner { font-family: var(--arcade); font-weight: 700; font-size: clamp(22px, 3vw, 38px); letter-spacing: 0.22em; margin-top: 14px; }
+#decision .winner { font-family: var(--arcade); font-weight: 700; font-size: clamp(22px, 3vw, 38px); letter-spacing: 0.08em; margin-top: 14px; }
 #decision .flavour:empty { display: none; }
 #decision .kim-kanji { font-size: clamp(22px, 3vw, 36px); letter-spacing: 0.3em; margin: 6px 0 -6px; }
 #decision .kim-kanji:empty { display: none; }

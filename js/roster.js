@@ -29,6 +29,11 @@ export const ROSTER = [
     blurb: 'Left in the oven through two shifts. Light, quick and brittle as charcoal.',
     stats: { mass: 0.82, speed: 1.15, turn: 1.2, take: 1.2, power: 1.05 },
   },
+  {
+    id: 'rotten', name: 'FUNIKU', rank: 'JŪRYŌ', cook: 'Gone Off', skin: 5,
+    blurb: 'Found at the back of the fridge. Nobody wants to grapple with it, which is half the battle.',
+    stats: { mass: 1.05, speed: 0.88, turn: 0.95, take: 1.15, power: 1.12 },
+  },
 ];
 
 // The four bars shown on the select screen, each 0..1.

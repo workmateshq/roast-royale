@@ -20,7 +20,7 @@ const WING_FROM = 0.5;                // wings are above this, out at the sides
 // Worked out per pixel from where that bit of skin sits on the standing chicken in its rest pose
 // (before the rig moves it), so the belt stays on the hips however the legs and wings move.
 // uSkin picks the cook: 0 golden roast, 1 extra crispy (charred black), 2 barely crispy (pale),
-// 3 frozen raw chook (pale pink, frosted), 4 battered (crunchy golden coating).
+// 3 frozen raw chook (pale pink, frosted), 4 battered (crunchy golden coating), 5 rotten (grey, green mould, fuzz).
 const SKIN_GLSL = `
   float rrHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
   float rrNoise(vec3 x) {
@@ -30,6 +30,7 @@ const SKIN_GLSL = `
   }
   // Surface relief for the cook (batter crumbs, charred cracks, goosebumps), 0..1.
   float rrRelief(vec3 p) {
+    if (uSkin > 4.5) return rrNoise(p * 9.0) * 0.5 + rrNoise(p * 220.0) * 0.5;   // lumpy, with fine fuzz
     if (uSkin > 3.5) return rrNoise(p * 55.0) * 0.6 + rrNoise(p * 130.0) * 0.4;
     if (uSkin > 2.5) return rrNoise(p * 160.0);
     if (uSkin > 0.5 && uSkin < 1.5) return abs(rrNoise(p * 24.0) - 0.5) * 2.0;
@@ -65,6 +66,13 @@ function paintSkin(material, belt, box) {
           } else if (uSkin > 2.5 && uSkin < 3.5) {   // frozen raw chook: pale pink skin, frosted over
             c = mix(vec3(0.84, 0.48, 0.5), vec3(0.98, 0.72, 0.72), smoothstep(0.1, 0.65, L));
             c = mix(c, vec3(0.9, 0.95, 1.0), smoothstep(0.7, 0.95, rrNoise(vRest * 38.0)) * 0.45);
+          } else if (uSkin > 4.5) {                  // rotten: sallow grey, dark green mould blooms, pale fuzz on top
+            c = mix(vec3(0.36, 0.36, 0.32), vec3(0.6, 0.59, 0.53), smoothstep(0.1, 0.7, L));
+            float bloom = smoothstep(0.52, 0.68, rrNoise(vRest * 6.0) * 0.7 + rrNoise(vRest * 21.0) * 0.3);
+            c = mix(c, vec3(0.1, 0.2, 0.09), bloom * 0.9);
+            c = mix(c, vec3(0.2, 0.32, 0.14), smoothstep(0.62, 0.8, rrNoise(vRest * 14.0 + 3.1)) * 0.6 * (1.0 - bloom));
+            float fuzz = smoothstep(0.55, 1.0, rrNoise(vRest * 240.0)) * (0.35 + 0.65 * bloom);
+            c = mix(c, vec3(0.78, 0.82, 0.74), fuzz * 0.55);
           } else if (uSkin > 3.5) {                  // battered: golden, crunchy, crumbs catching the light
             c = mix(vec3(0.62, 0.32, 0.08), vec3(0.98, 0.7, 0.3), smoothstep(0.25, 0.75, r)) * (0.85 + 0.25 * L);
           }
@@ -86,12 +94,13 @@ function paintSkin(material, belt, box) {
         if (uSkin > 0.5 && uSkin < 1.5) roughnessFactor = mix(roughnessFactor, 0.92, 0.8);
         else if (uSkin > 1.5 && uSkin < 2.5) roughnessFactor = mix(roughnessFactor, 0.4, 0.5);
         else if (uSkin > 2.5 && uSkin < 3.5) roughnessFactor = mix(0.32, 0.6, rrNoise(vRest * 38.0));
+        else if (uSkin > 4.5) roughnessFactor = 0.97;   // dull, furry, nothing glistens
         else if (uSkin > 3.5) roughnessFactor = mix(roughnessFactor, 0.78, 0.8);
         roughnessFactor = mix(roughnessFactor, 0.55, rrBelt);`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         if (uSkin > 0.5 && rrBelt < 0.5) {
           // Bump the surface with the cook's relief (batter crumbs stand out the most).
-          float amt = uSkin > 3.5 ? 0.012 : uSkin > 2.5 ? 0.0012 : uSkin < 1.5 ? 0.006 : 0.0;
+          float amt = uSkin > 4.5 ? 0.01 : uSkin > 3.5 ? 0.012 : uSkin > 2.5 ? 0.0012 : uSkin < 1.5 ? 0.006 : 0.0;
           float h = rrRelief(vRest) * amt;
           vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition);
           float hx = dFdx(h), hy = dFdy(h);

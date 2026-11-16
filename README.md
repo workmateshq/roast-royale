@@ -36,6 +36,7 @@ Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 | Reitō | Frozen raw chook | Heavy and stiff, slow to turn |
 | Katsudon | Battered | Heavy shove, crunchy armour |
 | Kogeta | Extra crispy (charcoal black) | Light and quick, but brittle |
+| Funiku | Rotten (grey, mouldy, fuzzy) | Hits hard, falls apart |
 
 Win a round by pushing your rival out of the ring (Yorikiri), or draining their balance to 100% so they topple (Koppori). Stepping out on your own is Isamiashi. Best of three rounds.
 

@@ -34,7 +34,7 @@ addEventListener('resize', () => {
 
 // Lighting: one warm arena spotlight from the roof (the key light, with shadows), a dim warm/cool
 // hemisphere for the soft fill, and a low rim light so silhouettes read against the dark hall.
-scene.add(new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.16));
+scene.add(new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.1));
 // Straight down from the roof onto the ring, with a tight cone and a short soft edge, so the light
 // pools on the dohyō and the hall beyond stays dark.
 const spot = new THREE.SpotLight(0xffd29a, 340, 0, 0.36, 0.22, 2);
@@ -121,6 +121,15 @@ scene.add(arena);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.85 }));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
+  // The hall floor fades to black just behind the banners, so the light ends at the edge of the ring.
+  floor.material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vHall;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHall = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vHall;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb *= 1.0 - smoothstep(12.5, 16.0, length(vHall));');
+  };
   arena.add(floor);
 
   // Platform: clay sides, sand top.
@@ -252,7 +261,7 @@ scene.add(arena);
     arena.add(nobori);
   }
   // The banners just catch a little warm light from above, rather than the main spot spilling onto them.
-  const glow = new THREE.SpotLight(0xffc98a, 14, 22, 1.25, 0.9, 1.2);
+  const glow = new THREE.SpotLight(0xffc98a, 14, 16.5, 1.15, 0.6, 1.6);
   glow.position.set(0, 9, 0);
   glow.target.position.set(0, 0, 0);
   arena.add(glow, glow.target);

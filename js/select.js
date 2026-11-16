@@ -48,7 +48,6 @@ export function renderSelect(sides) {
     if (d.waiting) {
       $(`fname-${s}`).textContent = d.waiting;
       $(`fcook-${s}`).textContent = '';
-      $(`fblurb-${s}`).textContent = '';
       $(`fstats-${s}`).replaceChildren();
       $(`flock-${s}`).textContent = '';
       continue;
@@ -56,7 +55,6 @@ export function renderSelect(sides) {
     const c = ROSTER[d.i];
     $(`fname-${s}`).textContent = c.name;
     $(`fcook-${s}`).textContent = `${c.cook.toUpperCase()} · ${c.rank}`;
-    $(`fblurb-${s}`).textContent = c.blurb;
     $(`fstats-${s}`).replaceChildren(...statBars(c).flatMap(([label, v]) => {
       const l = document.createElement('span');
       l.textContent = label;

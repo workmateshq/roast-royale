@@ -201,10 +201,10 @@ export function stepWrestler(w, it, opp, dt) {
     // ---- getting your balance back ----
     if (w.sinceHit > 0.8 && w.teeter === 0) w.balance = Math.max(0, w.balance - (w.state === 'brace' ? 15 : 8) * dt);
   } else {
-    // Down or out: just sliding to a stop.
+    // Down or out: coming to a stop (quickly: it's stumbling and falling, not sliding on ice).
     const speed = w.vel.length();
-    w.vel.multiplyScalar(Math.max(0, 1 - 1.8 * dt));
-    if (speed > 0) w.vel.multiplyScalar(Math.max(0, speed - 2 * dt) / speed);
+    w.vel.multiplyScalar(Math.max(0, 1 - 2.6 * dt));
+    if (speed > 0) w.vel.multiplyScalar(Math.max(0, speed - 3 * dt) / speed);
     // Lying down takes up more room than standing: keep the fallen body clear of the straw bales.
     // Toppled inside the ring, it settles a little further in; out of the ring, a little further out,
     // turned to face the middle so it falls backwards away from the bales.
@@ -214,7 +214,7 @@ export function stepWrestler(w, it, opp, dt) {
       w.pos.multiplyScalar(1 + (target / r - 1) * Math.min(1, dt * 6));
       if (w.state === 'out') {
         const face = Math.atan2(-w.pos.x, -w.pos.y);
-        w.heading = wrap(w.heading + wrap(face - w.heading) * Math.min(1, dt * 8));
+        w.heading = wrap(w.heading + wrap(face - w.heading) * Math.min(1, dt * 3));   // turning as it staggers
       }
     }
   }

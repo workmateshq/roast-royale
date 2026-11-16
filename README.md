@@ -58,7 +58,7 @@ Win a round by pushing your rival out of the ring (Yorikiri), or draining their 
 
 In the browser console, `roast.debugRig(true)` tints each part of the chicken by the bone that moves it.
 
-To check a pose close up, open `?pose=push` (or `brace`, `windup`, `charge`, `dodge`, `idle`), optionally with `&az=1.5` to orbit the camera, then press Enter.
+To check a pose close up, open `?pose=push` (or `brace`, `windup`, `charge`, `dodge`, `idle`), optionally with `&az=1.5` to orbit the camera, then press Enter. For `out`, `&ft=0.5` holds the fall at that many seconds in.
 
 ## Credits
 

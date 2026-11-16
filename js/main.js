@@ -83,13 +83,16 @@ function animate(w, t, dt) {
     case 'stagger': pitch = -0.12; roll = Math.sin(t * 16) * 0.22 * Math.max(0, 1 - w.t / w.staggerFor); armPose = 'flail'; break;
     case 'down': roll = 1.45 * w.fallSign; pitch = -0.2; armPose = 'down'; canWalk = false; break;   // keeled over on its side
     case 'out': {
-      // Tripped over the straw: a stumble back, then flat on its back, drumsticks and wings flapping.
+      // Tripped over the straw: a couple of staggering steps back, windmilling, then over onto its
+      // back with a bump, drumsticks and wings flapping.
       const ft = clock.t - w.doneAt;
-      const tip = smoothstep(0.08, 0.5, ft);
-      pitch = -0.25 * Math.sin(Math.min(1, ft / 0.12) * Math.PI) - 1.62 * tip;   // a lurch, then over backwards
-      roll = 0.15 * w.fallSign * tip + (ft > 0.5 ? Math.sin(ft * 9) * 0.06 : 0);   // rocking on its back
-      armPose = ft > 0.35 ? 'flap' : 'flail';
-      canWalk = false;
+      const tip = smoothstep(0.55, 1.05, ft);
+      const totter = ft < 0.6 ? Math.sin(ft * 15) * (1 - ft / 0.6) : 0;
+      pitch = 0.18 * Math.sin(Math.min(1, ft / 0.3) * Math.PI) + 0.12 * totter - 1.62 * tip;   // pitches forward to save itself, then goes over backwards
+      roll = 0.22 * totter * w.fallSign + 0.15 * w.fallSign * tip + (ft > 1.1 ? Math.sin(ft * 9) * 0.06 : 0);
+      if (ft > 1.0 && ft < 1.2) squash = 0.9;          // the bump as it lands
+      armPose = ft > 0.9 ? 'flap' : 'flail';
+      canWalk = ft < 0.6;                                // the feet keep stepping while it staggers
       break;
     }
   }
@@ -409,6 +412,8 @@ function checkEvents() {
       shake(0.25);
     } else if (w.pos.length() > OUT_R) {
       w.set('out');
+      // Over the straw it stumbles rather than sails: whatever the speed, only a staggering step or two's worth is left.
+      if (w.vel.length() > 2.2) w.vel.setLength(2.2);
       w.fallSign = Math.random() < 0.5 ? -1 : 1;
       w.doneAt = clock.t;
       const lh = w.lastHit;
@@ -747,6 +752,7 @@ function tick(now, draw) {
     player.pos.set(0, 0); player.vel.set(0, 0); player.heading = 0.6;
     if (POSE.state === 'out') {
       if (player.state !== 'out' || clock.t - player.doneAt > 3) { player.set('out'); player.doneAt = clock.t; player.fallSign = 1; }
+      if (_q.has('ft')) player.doneAt = clock.t - Number(_q.get('ft'));   // ?ft=0.5 holds the fall at that moment
     } else if (player.state !== POSE.state || player.t > 0.2) { player.set(POSE.state); player.t = 0.1; player.charge = 1; }
     cpu.pos.set(0, 9); cpu.vel.set(0, 0);
   }

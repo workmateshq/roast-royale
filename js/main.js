@@ -1275,9 +1275,25 @@ function tick(now, draw) {
           r.push = r.dodge = false;
           return it;
         });
-        act.forEach((w, k) => stepWrestler(w, intents[k], act.filter((o) => o !== w), FIXED_DT));
-        // Every pair can collide (in a free-for-all, a fallen chicken is out of the way).
-        for (let i = 0; i < act.length; i++) {
+        // Once the round's decided, whoever's still standing has won: they stop dead where they are
+        // (no following the loser out over the straw).
+        const decided = !!game.pending || (game.phase !== 'fight' && game.phase !== 'ready');
+        act.forEach((w, k) => {
+          if (decided && !w.done) {
+            const at = w.pos.clone();
+            w.vel.set(0, 0);
+            stepWrestler(w, idle(), act.filter((o) => o !== w), FIXED_DT);
+            w.pos.copy(at);
+            w.vel.set(0, 0);
+            if (!['idle', 'brace'].includes(w.state)) w.set('idle');
+            if (w.pos.length() > RING_R - 0.25) w.pos.setLength(RING_R - 0.25);   // safely inside the straw
+            return;
+          }
+          stepWrestler(w, intents[k], act.filter((o) => o !== w), FIXED_DT);
+        });
+        // Every pair can collide (in a free-for-all, a fallen chicken is out of the way). Not once it's
+        // decided, so a falling loser can't shove the winner out after the fact.
+        for (let i = 0; i < act.length && !decided; i++) {
           for (let j = i + 1; j < act.length; j++) {
             if (act.length > 2 && (act[i].done || act[j].done)) continue;
             collide(act[i], act[j]);

@@ -21,7 +21,7 @@ In a match, the buttons under the round name are Home (in the solo tournament or
 | Space (hold, release) | Drumstick Charge: wind up, then launch in a straight line |
 | Left click (quick) | Breast Push: both wings thrust forward in a shove |
 | Right click (hold) | Chicken Brace: hips drop, legs splay, wings out; heavily resists knockback |
-| Shift | Wing Dodge: a quick sidestep |
+| Left / Right Shift | Wing Dodge: a quick sidestep to the left or right |
 | Click and drag | Turn the camera round the ring (and up or down) |
 
 Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.

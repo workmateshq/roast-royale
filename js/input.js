@@ -10,13 +10,14 @@ export const inputState = { inGame: false };
 // Player input: keyboard + mouse, or a gamepad. Movement is relative to the camera.
 // =====================================================================================
 export const keys = new Set();
-export const pressed = { push: false, dodge: false, start: false };
+export const pressed = { push: false, dodge: false, start: false, dodgeSide: 0 };
 let braceHeld = false;
 addEventListener('keydown', (e) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
   keys.add(e.code);
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') pressed.dodge = true;
+  // Left Shift sidesteps to the left of the screen, right Shift to the right.
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { pressed.dodge = true; pressed.dodgeSide = e.code === 'ShiftLeft' ? -1 : 1; }
   if (e.code === 'Enter') pressed.start = true;
   ac();
 });
@@ -80,6 +81,7 @@ export function playerIntent(camAz) {
   // Camera-relative: W is "away from the camera".
   const fwd = new V2(-Math.sin(camAz), -Math.cos(camAz));
   const right = new V2(-fwd.y, fwd.x);
+  const dodgeTo = pressed.dodgeSide ? right.clone().multiplyScalar(pressed.dodgeSide) : null;
   let x = 0, y = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) y += 1;
   if (keys.has('KeyS') || keys.has('ArrowDown')) y -= 1;
@@ -92,6 +94,6 @@ export function playerIntent(camAz) {
     move, face: null,
     charge: keys.has('Space') || pad.charge,
     brace: braceHeld || pad.brace,
-    push: pressed.push, dodge: pressed.dodge,
+    push: pressed.push, dodge: pressed.dodge, dodgeTo,
   };
 }

@@ -137,7 +137,9 @@ export function stepWrestler(w, it, opps, dt) {
     if (free && it.dodge && w.cd.dodge <= 0) {
       w.set('dodge');
       const side = new V2(w.facing.y, -w.facing.x);   // to your right
-      const s = it.move.lengthSq() > 0.04 ? Math.sign(side.dot(it.move)) || 1 : (Math.random() < 0.5 ? -1 : 1);
+      // Which way: the Shift key's side if given, else the way you're steering, else either.
+      const s = it.dodgeTo ? Math.sign(side.dot(it.dodgeTo)) || 1
+        : it.move.lengthSq() > 0.04 ? Math.sign(side.dot(it.move)) || 1 : (Math.random() < 0.5 ? -1 : 1);
       w.dodgeDir = s;
       w.vel.addScaledVector(side, 6.2 * s);
       w.ghost = 0.26;

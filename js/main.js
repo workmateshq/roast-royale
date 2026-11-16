@@ -1074,7 +1074,7 @@ online.net = createOnline({
     r.move.set(m.m[0], m.m[1]).clampLength(0, 1);
     r.charge = !!m.c; r.brace = !!m.b;
     if (m.p) r.push = true;
-    if (m.d) r.dodge = true;
+    if (m.d) { r.dodge = true; r.dodgeTo = Array.isArray(m.dt) ? new V2(m.dt[0], m.dt[1]) : null; }
   },
   snap: (m) => {
     if (!isGuest()) return;
@@ -1121,8 +1121,9 @@ function sendPad(real) {
   if (online.sendIn > 0 && !pressed.push && !pressed.dodge) return;
   online.sendIn = 1 / 30;
   const it = playerIntent(cam.az);
-  online.net.send({ type: 'pad', m: [r3(it.move.x), r3(it.move.y)], c: it.charge, b: it.brace, p: it.push, d: it.dodge });
+  online.net.send({ type: 'pad', m: [r3(it.move.x), r3(it.move.y)], c: it.charge, b: it.brace, p: it.push, d: it.dodge, dt: it.dodge && it.dodgeTo ? [r3(it.dodgeTo.x), r3(it.dodgeTo.y)] : null });
   pressed.push = pressed.dodge = false;
+  pressed.dodgeSide = 0;
 }
 // Host: send the fight's state to your mates about 30 times a second.
 function sendSnap(real) {
@@ -1307,7 +1308,7 @@ function tick(now, draw) {
           if (match.mode === 'practice') return dummyIntent();
           if (!remote) return brain.think(FIXED_DT);
           const r = online.remote[s], it = { ...r, move: r.move.clone(), face: null };
-          r.push = r.dodge = false;
+          r.push = r.dodge = false; r.dodgeTo = null;
           return it;
         });
         // Once the round's decided, whoever's still standing has won: they stop dead where they are
@@ -1339,13 +1340,13 @@ function tick(now, draw) {
         acc -= FIXED_DT;
         steps++;
       }
-      if (steps > 0) pressed.push = pressed.dodge = false;
+      if (steps > 0) { pressed.push = pressed.dodge = false; pressed.dodgeSide = 0; }
     } else {
       acc = 0;
     }
     sendSnap(real);
   }
-  if (game.phase !== 'fight') pressed.push = pressed.dodge = false;
+  if (game.phase !== 'fight') { pressed.push = pressed.dodge = false; pressed.dodgeSide = 0; }
   pressed.start = false;
 
   for (const w of actives()) animate(w, game.realT + slotOf(w) * 1.7, real);

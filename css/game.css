@@ -206,8 +206,9 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .fstats .sbar i { display: block; height: 100%; background: linear-gradient(90deg, #b8893a, #e8c27a); }
 .flock { margin-top: 10px; min-height: 1.2em; font-family: var(--serif); font-weight: 800; letter-spacing: 0.2em; color: var(--gold); }
 .select-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.room-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; letter-spacing: 0.16em; font-size: 13px; color: var(--muted); }
-.room-bar code { font-family: var(--serif); font-weight: 800; font-size: 26px; letter-spacing: 0.3em; color: var(--ink); }
+.room-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; letter-spacing: 0.16em; font-size: 13px; color: var(--muted); }
+.room-bar code { font-family: var(--serif); font-weight: 800; font-size: 26px; letter-spacing: 0.3em; margin-right: -0.3em; line-height: 1; color: var(--ink); }
+.room-bar > span { line-height: 1; }
 .room-bar.compact { padding: 5px 14px; gap: 10px; }
 .room-bar.compact code { font-size: 18px; letter-spacing: 0.24em; }
 .room-status { color: var(--gold); letter-spacing: 0.06em; font-size: 14px; }

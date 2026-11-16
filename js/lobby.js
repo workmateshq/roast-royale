@@ -21,7 +21,8 @@ export function renderSlots(entries) {
     const e = entries[s];
     el.classList.toggle('filled', !!e);
     el.classList.toggle('you', !!(e && e.you));
-    el.querySelector('.slot-name').textContent = e ? (e.you ? 'YOU' : 'MATE') : 'EMPTY';
+    // Just the slot's number above (P1 is the host); yours says (YOU), empty ones EMPTY.
+    el.querySelector('.slot-name').textContent = e ? (e.you ? '(YOU)' : '') : 'EMPTY';
     el.querySelector('.slot-tag').textContent = (e && e.tag) || '';
   });
 }

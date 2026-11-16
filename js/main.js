@@ -334,7 +334,7 @@ function renderLobby() {
   }
   for (const p of online.players) {
     const you = p.id === online.net.id;
-    entries[p.slot - 1] = { you, tag: !online.link && p.id === online.hostId ? '(HOST)' : '' };
+    entries[p.slot - 1] = { you, tag: '' };
   }
   renderSlots(entries);
   $('room-code').textContent = match.room;
@@ -343,7 +343,9 @@ function renderLobby() {
   // The host sees Start once a mate's in; until then (and for everyone else) a line under the slots says what's next.
   $('start-btn').hidden = !canBegin();
   $('start-btn').querySelector('b').textContent = `Start game with ${n} players`;
-  $('lobby-wait').textContent = online.net.isHost ? 'Waiting for mates to join…' : `Waiting for ${host ? pTag(host.slot - 1) : 'the host'} to start…`;
+  $('lobby-wait').textContent = online.net.isHost ? 'Waiting for mates to join… or take on the CPU while you wait.' : `Waiting for ${host ? pTag(host.slot - 1) : 'the host'} to start…`;
+  // On your own in a ring, you can play the CPU (you'll come back to the ring's lobby afterwards).
+  $('room-cpu').hidden = n !== 1;
 }
 function beginRoom() {
   if (!canBegin()) return;
@@ -881,7 +883,8 @@ function sendSnap(real) {
 // Menus: keyboard, mouse and gamepad
 // =====================================================================================
 function chooseCpu() {
-  if (inRoom()) return;
+  if (inRoom() && online.players.length > 1) return;
+  if (inRoom()) { online.net.leave(); match.room = null; history.replaceState(null, '', basePath()); }
   if (online.connecting) goTitle();   // (calls off a ring still connecting)
   sfx.clack();
   preloadVoices();
@@ -895,6 +898,7 @@ function homeStart() {
   else if (!online.connecting) chooseCpu();
 }
 $('mode-cpu').addEventListener('click', chooseCpu);
+$('room-cpu').addEventListener('click', chooseCpu);
 $('create-btn').addEventListener('click', () => { sfx.clack(); connect('Building the ring...', false, (ack) => online.net.create(ack)); });
 $('join-btn').addEventListener('click', () => {
   const code = $('code-input').value.trim().toUpperCase();
@@ -942,7 +946,7 @@ $('copy-link').addEventListener('click', async () => {
   const link = `${location.origin}${basePath()}${(match.room || '').toLowerCase()}`;
   try { await navigator.clipboard.writeText(link); } catch { /* copied below */ }
   $('copy-link').querySelector('b').textContent = 'COPIED!';
-  setTimeout(() => { $('copy-link').querySelector('b').textContent = 'COPY INVITE LINK'; }, 1500);
+  setTimeout(() => { $('copy-link').querySelector('b').textContent = 'COPY LINK'; }, 1500);
 });
 
 addEventListener('keydown', (e) => {

@@ -63,7 +63,7 @@ To check a pose close up, open `?pose=push` (or `brace`, `windup`, `charge`, `do
 
 ## Credits
 
-"Roast chicken" (https://skfb.ly/6XHDu) by daidaiaoko is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/). The game stands it upright, rigs it and paints a mawashi onto it.
+"Roast chicken" (https://skfb.ly/6XHDu) by daidaiaoko is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/). The game stands it upright, rigs it and paints a mawashi onto it. The wings were cut free of the body in Blender (and the body and wing roots closed over) so they can swing away from the chest.
 
 Music: `assets/music/hitslab-japan-japanese-music.mp3` (menus) and `assets/music/sonican-taiko-energy.mp3` (fights). Crowd sounds are in `assets/cheers/`.
 

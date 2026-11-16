@@ -164,7 +164,7 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
 
   const parts = [];
   object.traverse((m) => {
-    if (m.isMesh) parts.push({ geo: m.geometry.clone().applyMatrix4(m.matrixWorld), mat: m.material });
+    if (m.isMesh) parts.push({ geo: m.geometry.clone().applyMatrix4(m.matrixWorld), mat: m.material, wing: /wing/i.test(m.name) ? (/_L/.test(m.name) ? 'L' : 'R') : null });
   });
   const rest = new THREE.Box3();
   parts.forEach((p) => { p.geo.computeBoundingBox(); rest.union(p.geo.boundingBox); });
@@ -175,13 +175,15 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
   const feet = [new THREE.Vector3(), new THREE.Vector3()], nFeet = [0, 0];
   const wings = [[], []];
   const v = new THREE.Vector3();
+  // The model's wings are separate pieces (cut free in Blender), so they can swing away from the body.
+  const separateWings = parts.some((p) => p.wing);
   for (const p of parts) {
     const pos = p.geo.attributes.position;
     for (let i = 0; i < pos.count; i += 3) {
       v.fromBufferAttribute(pos, i);
       const side = v.x < 0 ? 0 : 1;
-      if (v.y < rest.min.y + 0.07 * H) { feet[side].add(v); nFeet[side]++; }
-      if (v.y > WING_FROM * H && Math.abs(v.x) > 0.72 * halfW) wings[side].push(v.clone());
+      if (!p.wing && v.y < rest.min.y + 0.07 * H) { feet[side].add(v); nFeet[side]++; }
+      if (separateWings ? p.wing : (v.y > WING_FROM * H && Math.abs(v.x) > 0.72 * halfW)) wings[side].push(v.clone());
     }
   }
   feet.forEach((f, s) => (nFeet[s] ? f.divideScalar(nFeet[s]) : f.set((s ? 1 : -1) * 0.3 * halfW, 0, 0)));
@@ -244,9 +246,11 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
     for (let i = 0; i < n; i++) {
       v.fromBufferAttribute(pos, i);
       const s = v.x < 0 ? 0 : 1, f = feet[s], j = wingJoints[s];
-      const legW = smoothstep(LEG_TOP * H, (HIP_Y - 0.12) * H, v.y) * smoothstep(0.2, 0.6, Math.abs(v.x) / Math.max(0.05, Math.abs(f.x)));
+      const legW = p.wing ? 0 : smoothstep(LEG_TOP * H, (HIP_Y - 0.12) * H, v.y) * smoothstep(0.2, 0.6, Math.abs(v.x) / Math.max(0.05, Math.abs(f.x)));
       const along = v.distanceTo(j.shoulder) / Math.max(0.05, j.reach);
-      const wingW = (1 - legW) * smoothstep(0.68, 0.8, Math.abs(v.x) / halfW) * smoothstep(0.58 * H, 0.68 * H, v.y) * (1 - smoothstep(1.0, 1.2, along));
+      // A separate wing piece moves wholly with its wing; the body never follows the wing bones.
+      const wingW = separateWings ? (p.wing ? 1 : 0)
+        : (1 - legW) * smoothstep(0.68, 0.8, Math.abs(v.x) / halfW) * smoothstep(0.58 * H, 0.68 * H, v.y) * (1 - smoothstep(1.0, 1.2, along));
       const elbowW = wingW * smoothstep(0.45, 0.7, along);
       idx.set([B.leg[s], B.shoulder[s], B.elbow[s], B.torso], i * 4);
       wt.set([legW, wingW - elbowW, elbowW, Math.max(0, 1 - legW - wingW)], i * 4);
@@ -265,7 +269,7 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
   rig.userData.rig = {
     pelvis, torso, legs, arms, hipY, H, mats,
     rest: { arms: arms.map((a) => ({ s: a.shoulder.quaternion.clone(), e: a.elbow.quaternion.clone() })) },
-    phase: 0, amp: 0, dir: new THREE.Vector2(0, 1), push: 0, wingT: Math.random() * 10,
+    phase: 0, amp: 0, dir: new THREE.Vector2(0, 1), push: 0, wingT: Math.random() * 10, separateWings,
   };
   return rig;
 }
@@ -441,13 +445,15 @@ export function poseChicken(v, w, dt, o) {
     flap:    [-0.1, 0.45, 0.25],         // on its back: wings flapping helplessly
     down:    [0.1, 0.35, 0.15],
   }[o.armPose] || [0, 0, 0];
+  // Free-moving wings (separate pieces) can go much further without tearing the skin.
+  const big = r.separateWings ? 1.4 : 1;
   r.push += ((o.armPose === 'push' ? 1 : 0) - r.push) * Math.min(1, dt * 18);
   const wob = o.armPose === 'flail' ? Math.sin(r.wingT * 22) * 0.35 : o.armPose === 'victory' ? Math.sin(r.wingT * 6.4) * 0.25
     : o.armPose === 'flap' ? Math.sin(r.wingT * 26) * 0.45 : 0;
   r.arms.forEach((arm, k) => {
     const sg = k ? 1 : -1;            // mirror left/right
     const ph = k ? swing : -swing;
-    const target = { s: [ARM[0] + ph + (k ? wob : -wob) * 0.5, 0, sg * (ARM[1] + Math.abs(wob) * 0.3)], e: ARM[2] };
+    const target = { s: [(ARM[0] + ph + (k ? wob : -wob) * 0.5) * big, 0, sg * (ARM[1] + Math.abs(wob) * 0.3) * big], e: ARM[2] * big };
     arm.cur = arm.cur || { s: [0, 0, 0], e: 0 };
     const kk = Math.min(1, dt * (o.armPose === 'push' ? 22 : o.armPose === 'flap' ? 30 : 10));
     for (let i = 0; i < 3; i++) arm.cur.s[i] += (target.s[i] - arm.cur.s[i]) * kk;

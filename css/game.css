@@ -240,8 +240,8 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .tile.lock-3 .b-3 { box-shadow: 0 0 0 2px #fff3d6; }
 @media (max-width: 760px) { .fighters { top: auto; bottom: 230px; width: 44vw; } .fighter { padding: 8px 10px; } .fstats { display: none; } }
 
-.ready-btn { display: block; margin: 4px auto 0; min-width: 200px; padding: 6px 28px; }
-.ready-btn b { font-size: 18px; letter-spacing: 0.2em; }
+.ready-btn { display: block; margin: 6px auto 0; min-width: 380px; padding: 16px 48px; }
+.ready-btn b { font-size: 32px; letter-spacing: 0.22em; }
 .ready-btn.on, .ready-btn.on:hover { border-color: var(--gold); background: linear-gradient(180deg, #f3d48e, #c99a45); box-shadow: 0 0 18px rgba(232, 194, 122, 0.45); }
 .ready-btn.on b { color: #2a1a0c; }
 .ready-btn b { margin-right: -0.2em; }

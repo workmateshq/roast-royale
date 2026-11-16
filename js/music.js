@@ -50,7 +50,7 @@ export function updateMusic(phase, dt) {
     const target = name === want && !musicMuted ? 1 : 0;
     const fade = name === 'fight' && target === 0 ? 0.5 : FADE;   // the drums stop quickly when the round ends
     p.level += Math.sign(target - p.level) * Math.min(Math.abs(target - p.level), dt / fade);
-    p.el.volume = p.level * p.max;
+    p.el.volume = Math.min(1, Math.max(0, p.level * p.max));
     if (p.level > 0 && p.el.paused) {
       if (name === want && p.level <= dt / FADE + 1e-6) p.el.currentTime = 0;   // each round's drums start from the top
       p.el.play().catch(() => {});
@@ -102,7 +102,7 @@ export function updateCrowd(phase, dt) {
   for (const c of [...CHEERS, APPLAUSE]) {
     if (c.el.paused) continue;
     c.level = Math.max(0, c.level - dt / FADE);
-    c.el.volume = c.level * c.vol;
+    c.el.volume = Math.min(1, Math.max(0, c.level * c.vol));
     if (c.level === 0) c.el.pause();
   }
 }

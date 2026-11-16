@@ -388,8 +388,8 @@ function bagMaterial(H) {
   // Clear film, shrink-wrapped close to the skin: nearly invisible face-on, catching the light at the
   // edges (Fresnel) and in sharp wrinkle highlights, like real roasting-bag plastic.
   const m = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, transparent: true, opacity: 1, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02,
-    specularIntensity: 1, depthWrite: false, side: THREE.FrontSide, envMapIntensity: 2.4,
+    color: 0x000000, transparent: true, opacity: 1, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.0,   // no diffuse: only reflections show
+    specularIntensity: 1, depthWrite: false, side: THREE.FrontSide, envMapIntensity: 2.6,
   });
   const u = { uPuff: { value: 0.009 * H }, uScale: { value: 1 / H } };
   const NOISE = `
@@ -400,10 +400,12 @@ function bagMaterial(H) {
                  mix(mix(bagHash(i + vec3(0,0,1)), bagHash(i + vec3(1,0,1)), f.x), mix(bagHash(i + vec3(0,1,1)), bagHash(i + vec3(1,1,1)), f.x), f.y), f.z);
     }
     // Creases: long, thin ridges (stretched noise) rather than blobs, so highlights streak.
+    float bagRidge(vec3 p) { return 1.0 - abs(bagNoise(p) - 0.5) * 2.0; }
     float bagWrinkle(vec3 p) {
-      float a = abs(bagNoise(vec3(p.x * 6.0, p.y * 22.0, p.z * 6.0)) - 0.5) * 2.0;
-      float b = abs(bagNoise(vec3(p.x * 18.0 + 3.1, p.y * 7.0, p.z * 18.0)) - 0.5) * 2.0;
-      return 1.0 - min(a, b);
+      float a = bagRidge(vec3(p.x * 7.0, p.y * 22.0, p.z * 7.0));
+      float b = bagRidge(vec3(p.x * 19.0 + 3.1, p.y * 8.0, p.z * 19.0));
+      float c = bagRidge(vec3((p.x + p.y) * 15.0 + 7.3, (p.y - p.z) * 15.0, p.z * 11.0));
+      return pow(max(a, max(b, c)), 4.0);
     }`;
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
@@ -414,19 +416,20 @@ function bagMaterial(H) {
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vBag = transformed * uScale;
         // Just off the skin, with the slight slack of film over the hollows.
-        transformed += objectNormal * uPuff * (0.7 + 0.6 * bagNoise(vBag * 10.0));`);
+        transformed += objectNormal * uPuff * (0.6 + 0.9 * bagNoise(vBag * 10.0) + 0.7 * bagWrinkle(vBag));`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
+        uniform mat3 normalMatrix;
         varying vec3 vBag;` + NOISE)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
-          // Wrinkle the film's surface so reflections break up into creases.
-          float h = bagWrinkle(vBag) * 0.012;
-          vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition);
-          float hx = dFdx(h), hy = dFdy(h);
-          vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx);
-          float det = dot(dpx, r1);
-          normal = normalize(abs(det) * normal - sign(det) * (hx * r1 + hy * r2));
+          // Wrinkle the film so reflections break up into creases: the slope of the crease pattern, worked
+          // out on the surface itself (smooth, unlike screen-space derivatives), tilts the normal.
+          const float e = 0.004;
+          float w0 = bagWrinkle(vBag);
+          vec3 g = vec3(bagWrinkle(vBag + vec3(e, 0, 0)), bagWrinkle(vBag + vec3(0, e, 0)), bagWrinkle(vBag + vec3(0, 0, e))) - w0;
+          vec3 gv = normalMatrix * (g / e);
+          normal = normalize(normal - 0.035 * (gv - dot(gv, normal) * normal));
         }`)
       .replace('#include <dithering_fragment>', `#include <dithering_fragment>
         {
@@ -434,12 +437,14 @@ function bagMaterial(H) {
           float facing = abs(dot(normalize(normal), normalize(vViewPosition)));
           float fres = pow(1.0 - facing, 3.0);
           float shine = max(max(gl_FragColor.r, gl_FragColor.g), gl_FragColor.b);
-          float crease = smoothstep(0.75, 0.98, bagWrinkle(vBag));
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), 0.25 * crease);
-          gl_FragColor.a = clamp(0.035 + 0.5 * fres + 0.55 * smoothstep(0.55, 1.1, shine) + 0.12 * crease, 0.0, 0.85);
+          float crease = smoothstep(0.45, 0.9, bagWrinkle(vBag));
+          // Clear film: the chicken shows through. What you see is the reflections (shine), a pale sheen
+          // at the edges, and thin bright lines along the creases.
+          gl_FragColor.rgb = gl_FragColor.rgb + vec3(0.85) * (0.35 * fres + 0.35 * crease);
+          gl_FragColor.a = clamp(0.03 + 0.4 * fres + 0.9 * smoothstep(0.15, 0.8, shine) + 0.22 * crease, 0.0, 0.85);
         }`);
   };
-  m.customProgramCacheKey = () => 'roast-bag-2';
+  m.customProgramCacheKey = () => 'roast-bag-6';
   return m;
 }
 // The gathered neck of the bag: a twist-tie band and a crumpled tuft of plastic flaring up above it.

@@ -20,7 +20,8 @@ const WING_FROM = 0.5;                // wings are above this, out at the sides
 // Worked out per pixel from where that bit of skin sits on the standing chicken in its rest pose
 // (before the rig moves it), so the belt stays on the hips however the legs and wings move.
 // uSkin picks the cook: 0 golden roast, 1 extra crispy (charred black), 2 barely crispy (pale),
-// 3 frozen raw chook (pale pink, frosted), 4 battered (crunchy golden coating), 5 rotten (grey, green mould, fuzz).
+// 3 frozen raw chook (pale pink, frosted), 4 battered (crunchy golden coating), 5 rotten (grey, green mould, fuzz),
+// 6 raw white chicken in a roasting bag (the bag itself is a separate see-through shell, made in rigChicken).
 const SKIN_GLSL = `
   float rrHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
   float rrNoise(vec3 x) {
@@ -30,6 +31,7 @@ const SKIN_GLSL = `
   }
   // Surface relief for the cook (batter crumbs, charred cracks, goosebumps), 0..1.
   float rrRelief(vec3 p) {
+    if (uSkin > 5.5) return rrNoise(p * 140.0);                                 // goosebumpy raw skin
     if (uSkin > 4.5) return rrNoise(p * 9.0) * 0.5 + rrNoise(p * 220.0) * 0.5;   // lumpy, with fine fuzz
     if (uSkin > 3.5) return rrNoise(p * 55.0) * 0.6 + rrNoise(p * 130.0) * 0.4;
     if (uSkin > 2.5) return rrNoise(p * 160.0);
@@ -66,7 +68,9 @@ function paintSkin(material, belt, box) {
           } else if (uSkin > 2.5 && uSkin < 3.5) {   // frozen raw chook: pale pink skin, frosted over
             c = mix(vec3(0.84, 0.48, 0.5), vec3(0.98, 0.72, 0.72), smoothstep(0.1, 0.65, L));
             c = mix(c, vec3(0.9, 0.95, 1.0), smoothstep(0.7, 0.95, rrNoise(vRest * 38.0)) * 0.45);
-          } else if (uSkin > 4.5) {                  // rotten: sallow grey, dark green mould blooms, pale fuzz on top
+          } else if (uSkin > 5.5) {                  // bagged: raw, white, a faint pink-cream blush in the creases
+            c = mix(vec3(0.82, 0.76, 0.72), vec3(0.98, 0.96, 0.93), smoothstep(0.08, 0.6, L));
+          } else if (uSkin > 4.5 && uSkin < 5.5) {   // rotten: sallow grey, dark green mould blooms, pale fuzz on top
             c = mix(vec3(0.36, 0.36, 0.32), vec3(0.6, 0.59, 0.53), smoothstep(0.1, 0.7, L));
             float bloom = smoothstep(0.52, 0.68, rrNoise(vRest * 6.0) * 0.7 + rrNoise(vRest * 21.0) * 0.3);
             c = mix(c, vec3(0.1, 0.2, 0.09), bloom * 0.9);
@@ -94,13 +98,14 @@ function paintSkin(material, belt, box) {
         if (uSkin > 0.5 && uSkin < 1.5) roughnessFactor = mix(roughnessFactor, 0.92, 0.8);
         else if (uSkin > 1.5 && uSkin < 2.5) roughnessFactor = mix(roughnessFactor, 0.4, 0.5);
         else if (uSkin > 2.5 && uSkin < 3.5) roughnessFactor = mix(0.32, 0.6, rrNoise(vRest * 38.0));
+        else if (uSkin > 5.5) roughnessFactor = 0.42;   // moist raw skin
         else if (uSkin > 4.5) roughnessFactor = 0.97;   // dull, furry, nothing glistens
         else if (uSkin > 3.5) roughnessFactor = mix(roughnessFactor, 0.78, 0.8);
         roughnessFactor = mix(roughnessFactor, 0.55, rrBelt);`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         if (uSkin > 0.5 && rrBelt < 0.5) {
           // Bump the surface with the cook's relief (batter crumbs stand out the most).
-          float amt = uSkin > 4.5 ? 0.01 : uSkin > 3.5 ? 0.012 : uSkin > 2.5 ? 0.0012 : uSkin < 1.5 ? 0.006 : 0.0;
+          float amt = uSkin > 5.5 ? 0.0015 : uSkin > 4.5 ? 0.01 : uSkin > 3.5 ? 0.012 : uSkin > 2.5 ? 0.0012 : uSkin < 1.5 ? 0.006 : 0.0;
           float h = rrRelief(vRest) * amt;
           vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition);
           float hx = dFdx(h), hy = dFdy(h);
@@ -273,7 +278,7 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
   // (Without separate wing pieces) the model is one closed skin. Only the wing itself (out at the side, up high) follows the
   // wing bones, blending into the body over a short band at its root, and the wing poses are kept
   // small, so the wings stay attached and the torso skin doesn't stretch.
-  const mats = [];
+  const mats = [], bag = [];
   for (const p of parts) {
     const geo = p.geo;
     const pos = geo.attributes.position;
@@ -308,9 +313,37 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
     mesh.frustumCulled = false;
     rig.add(mesh);
     mesh.bind(skeleton);
+    // The roasting bag: the same skin, puffed out a little and crumpled, glossy and see-through.
+    // Shown only for the bagged chicken (setSkin).
+    const shell = new THREE.SkinnedMesh(geo, bagMaterial(H));
+    shell.frustumCulled = false;
+    shell.renderOrder = 2;
+    shell.visible = false;
+    rig.add(shell);
+    shell.bind(skeleton);
+    bag.push(shell);
+  }
+  // The bag's tie at the very top, where the head would be: twisted plastic sticking up like a ponytail.
+  {
+    let n = 0;
+    const top = new THREE.Vector3();
+    for (const p of parts) {
+      if (p.wing) continue;
+      const pos = p.geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        if (v.y > rest.max.y - 0.06 * H) { top.add(v); n++; }
+      }
+    }
+    if (n) top.divideScalar(n); else top.set(0, rest.max.y, 0);
+    const tail = bagTail(H);
+    tail.position.set(top.x, rest.max.y - 0.03 * H - hipY, top.z);
+    tail.visible = false;
+    torso.add(tail);
+    bag.push(tail);
   }
   rig.userData.rig = {
-    pelvis, torso, legs, arms, hipY, H, mats,
+    pelvis, torso, legs, arms, hipY, H, mats, bag,
     rest: { arms: arms.map((a) => ({ s: a.shoulder.quaternion.clone(), e: a.elbow.quaternion.clone() })) },
     phase: 0, amp: 0, dir: new THREE.Vector2(0, 1), push: 0, wingT: Math.random() * 10, separateWings,
   };
@@ -340,7 +373,80 @@ function setModel(v, rig) {
 // Which cook this chicken is (see ROSTER in roster.js).
 export function setSkin(v, skin) {
   v.skin = skin;
-  for (const m of v.model.userData.rig.mats) m.userData.u.uSkin.value = skin;
+  applySkin(v.model, skin);
+}
+function applySkin(rig, skin) {
+  const r = rig.userData.rig;
+  for (const m of r.mats) m.userData.u.uSkin.value = skin;
+  for (const b of r.bag || []) b.visible = skin === BAGGED;
+}
+const BAGGED = 6;
+
+// ---------- The roasting bag ----------
+// Clear, glossy plastic. A shell over the skin: pushed out along the normals, with a crumpled ripple.
+function bagMaterial(H) {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.22, roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04,
+    depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.6,
+  });
+  const puff = { value: 0.03 * H };
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uPuff = puff;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+        uniform float uPuff;
+        float bagHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        float bagNoise(vec3 x) {
+          vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(mix(bagHash(i), bagHash(i + vec3(1,0,0)), f.x), mix(bagHash(i + vec3(0,1,0)), bagHash(i + vec3(1,1,0)), f.x), f.y),
+                     mix(mix(bagHash(i + vec3(0,0,1)), bagHash(i + vec3(1,0,1)), f.x), mix(bagHash(i + vec3(0,1,1)), bagHash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float crumple = bagNoise(transformed * 9.0) * 0.7 + bagNoise(transformed * 23.0) * 0.3;
+        transformed += objectNormal * uPuff * (0.55 + 0.9 * crumple);`);
+  };
+  m.customProgramCacheKey = () => 'roast-bag';
+  return m;
+}
+// The gathered neck of the bag: a twist-tie band and a crumpled tuft of plastic flaring up above it.
+function bagTail(H) {
+  const g = new THREE.Group();
+  const plastic = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.3, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05,
+    depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.6,
+  });
+  // Gathered neck, narrowing to the tie, then the tail fanning out and drooping a touch.
+  const prof = [];
+  const P = (r, y) => prof.push(new THREE.Vector2(r * H, y * H));
+  P(0.11, -0.02); P(0.07, 0.03); P(0.028, 0.075); P(0.022, 0.1);    // gathered up to the tie
+  P(0.03, 0.12); P(0.055, 0.17); P(0.08, 0.23); P(0.095, 0.29); P(0.085, 0.32);   // the tuft above
+  const lathe = new THREE.LatheGeometry(prof, 28);
+  // Crumple it: pinch it into pleats and wobble the top so it isn't a neat cone.
+  const pos = lathe.attributes.position, q = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    q.fromBufferAttribute(pos, i);
+    const a = Math.atan2(q.z, q.x), y = q.y / H;
+    const pleat = 1 + 0.28 * Math.sin(a * 7 + y * 20) * smoothstep(0.1, 0.3, y) + 0.12 * Math.sin(a * 11);
+    q.x *= pleat; q.z *= pleat;
+    q.x += Math.sin(y * 9) * 0.04 * H * smoothstep(0.12, 0.32, y);     // leaning over a little, like a ponytail
+    q.y += Math.sin(a * 5) * 0.012 * H * smoothstep(0.2, 0.32, y);
+    pos.setXYZ(i, q.x, q.y, q.z);
+  }
+  lathe.computeVertexNormals();
+  const tuft = new THREE.Mesh(lathe, plastic);
+  tuft.renderOrder = 3;
+  g.add(tuft);
+  // The twist tie.
+  const tie = new THREE.Mesh(new THREE.TorusGeometry(0.03 * H, 0.008 * H, 8, 24), new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.5, metalness: 0.3 }));
+  tie.rotation.x = Math.PI / 2;
+  tie.position.y = 0.1 * H;
+  tie.castShadow = true;
+  g.add(tie);
+  const ends = new THREE.Mesh(new THREE.CylinderGeometry(0.005 * H, 0.005 * H, 0.06 * H, 6), tie.material);
+  ends.rotation.z = Math.PI / 2.4;
+  ends.position.set(0.045 * H, 0.1 * H, 0);
+  g.add(ends);
+  return g;
 }
 
 // Load the GLB; both chickens switch to it when it arrives.
@@ -378,7 +484,7 @@ export function renderPortraits(skins, size = 256) {
   cam.lookAt(0, 0.62, 0);
   const urls = skins.map((skin) => {
     const rig = template ? rigChicken(template.clone(true), 0x2a2a34, MODEL_TILT, MODEL_YAW) : rigChicken(proceduralChicken(), 0x2a2a34);
-    for (const m of rig.userData.rig.mats) m.userData.u.uSkin.value = skin;
+    applySkin(rig, skin);
     rig.rotation.x = 0.1;
     sc.add(rig);
     r.render(sc, cam);

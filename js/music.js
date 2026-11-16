@@ -38,7 +38,7 @@ function tryAutoplay(dt) {
 let musicMuted = false;
 export function setMusicMuted(m) { musicMuted = m; }
 
-const MENU_PHASES = ['title', 'select'];   // title is the home lobby
+const MENU_PHASES = ['title', 'select', 'practice'];   // title is the home lobby; practice is out on the clifftop, to the gentle track
 
 // Call every frame with the game phase and the real time passed.
 export function updateMusic(phase, dt) {
@@ -72,6 +72,8 @@ function crowdClip(name, vol) {
 }
 let lastCheer = -1, cheerAt = -1e9;
 let crowdMuted = false;
+let crowdHere = true;   // no crowd at practice
+export function setCrowdHere(on) { crowdHere = on; }
 export function setCrowdMuted(m) { crowdMuted = m; if (m) [...CHEERS, APPLAUSE].forEach((c) => c.el.pause()); }
 function start(c) {
   if (!unlocked || crowdMuted) return;
@@ -83,6 +85,7 @@ function start(c) {
 
 // force: always cheer (a round won); otherwise only if the crowd hasn't just cheered.
 export function cheer(force = false) {
+  if (!crowdHere) return;
   const now = performance.now() / 1000;
   if (!force && now - cheerAt < 6) return;
   cheerAt = now;

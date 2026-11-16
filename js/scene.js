@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RING_R, PLATFORM, PLATFORM_H, rand } from './config.js';
+import { buildCliff } from './cliff.js';
 
 // =====================================================================================
 // Renderer, scene, camera
@@ -34,7 +35,8 @@ addEventListener('resize', () => {
 
 // Lighting: one warm arena spotlight from the roof (the key light, with shadows), a dim warm/cool
 // hemisphere for the soft fill, and a low rim light so silhouettes read against the dark hall.
-scene.add(new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.1));
+const hemi = new THREE.HemisphereLight(0xffe2b8, 0x2a1a10, 0.1);
+scene.add(hemi);
 // Straight down from the roof onto the ring, with a tight cone and a short soft edge, so the light
 // pools on the dohyō and the hall beyond stays dark.
 const spot = new THREE.SpotLight(0xffd29a, 340, 0, 0.36, 0.22, 2);
@@ -159,6 +161,7 @@ softDot.wrapS = softDot.wrapT = THREE.ClampToEdgeWrapping;
 export const BANNER_R = 13.5;
 const arena = new THREE.Group();
 const banners = [];   // { group, mats } for fading out the ones the camera gets close to
+const hall = [];      // the parts of the arena that are the hall, not the dohyō: hidden on the clifftop
 scene.add(arena);
 {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.85 }));
@@ -174,6 +177,7 @@ scene.add(arena);
       .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb *= 1.0 - smoothstep(11.0, 15.0, length(vHall));');
   };
   arena.add(floor);
+  hall.push(floor);
 
   // Platform: clay sides, sand top.
   const sideMat = new THREE.MeshStandardMaterial({ map: clayTex, roughness: 0.95 });
@@ -262,6 +266,7 @@ scene.add(arena);
     roof.add(tassel);
   });
   arena.add(roof);
+  hall.push(roof);
 
   // Festival banners (nobori) round the hall, just catching the light.
   const words = ['丸焼き横綱', '鶏', '焼鳥場所', '大相撲', '照り焼き', '手羽先'];
@@ -307,6 +312,7 @@ scene.add(arena);
     pool.position.set(-0.2, 0.01, 0.15);
     nobori.add(pool);
     arena.add(nobori);
+    hall.push(nobori);
     const mats = [];
     nobori.traverse((m) => { if (m.material && !mats.includes(m.material)) mats.push(m.material); });
     for (const m of mats) { m.transparent = true; m.userData.baseOpacity = m.opacity; }
@@ -317,11 +323,13 @@ scene.add(arena);
   glow.position.set(0, 11, 0);
   glow.target.position.set(0, 0, 0);
   arena.add(glow, glow.target);
+  hall.push(glow);
 }
 
 // The camera never passes through a banner: any it gets near fade away, and come back as it moves off.
 const _bp = new THREE.Vector3();
 export function updateBanners() {
+  if (env.name === 'cliff') { env.cliff.update(performance.now() / 1000); return; }
   for (const b of banners) {
     b.group.getWorldPosition(_bp);
     const d = Math.hypot(camera.position.x - _bp.x, camera.position.z - _bp.z);
@@ -330,3 +338,40 @@ export function updateBanners() {
     for (const m of b.mats) m.opacity = m.userData.baseOpacity * k;
   }
 }
+
+// =====================================================================================
+// Where the ring stands: 'arena' (the dark hall, the tournament) or 'cliff' (a sunny clifftop
+// meadow above the sea, for practice). The dohyō itself is the same in both.
+// =====================================================================================
+const env = { name: 'arena', cliff: null };
+const ARENA_LOOK = {
+  background: scene.background.clone(), fog: [scene.fog.color.getHex(), scene.fog.near, scene.fog.far],
+  hemi: [hemi.color.getHex(), hemi.groundColor.getHex(), hemi.intensity], exposure: renderer.toneMappingExposure,
+  envIntensity: scene.environmentIntensity, far: camera.far,
+};
+export function setEnvironment(name) {
+  if (name === env.name) return;
+  const cliff = name === 'cliff';
+  if (cliff && !env.cliff) { env.cliff = buildCliff(); scene.add(env.cliff.group); }
+  env.name = name;
+  if (env.cliff) env.cliff.group.visible = cliff;
+  for (const o of hall) o.visible = !cliff;
+  spot.visible = rim.visible = !cliff;
+  if (cliff) {
+    scene.background = new THREE.Color(0xb4d8f2);
+    scene.fog.color.set(0xc3e0f3); scene.fog.near = 90; scene.fog.far = 700;
+    hemi.color.set(0xcfe8ff); hemi.groundColor.set(0x5c7330); hemi.intensity = 0.95;
+    renderer.toneMappingExposure = 0.95;
+    scene.environmentIntensity = 0.55;
+    camera.far = 2000;
+  } else {
+    scene.background = ARENA_LOOK.background.clone();
+    scene.fog.color.set(ARENA_LOOK.fog[0]); scene.fog.near = ARENA_LOOK.fog[1]; scene.fog.far = ARENA_LOOK.fog[2];
+    hemi.color.set(ARENA_LOOK.hemi[0]); hemi.groundColor.set(ARENA_LOOK.hemi[1]); hemi.intensity = ARENA_LOOK.hemi[2];
+    renderer.toneMappingExposure = ARENA_LOOK.exposure;
+    scene.environmentIntensity = ARENA_LOOK.envIntensity;
+    camera.far = ARENA_LOOK.far;
+  }
+  camera.updateProjectionMatrix();
+}
+export const environment = () => env.name;

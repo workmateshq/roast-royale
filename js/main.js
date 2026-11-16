@@ -1,8 +1,8 @@
 // Roast Royale: camera, animation, HUD, the tournament flow and the main loop.
 import * as THREE from 'three';
 import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES, V2, rand, wrap, clamp, smoothstep } from './config.js';
-import { renderer, scene, camera, canvas, updateBanners, BANNER_R } from './scene.js';
-import { emit, updateParticles, sfx, shake, view, updateFlashes, excite, setSfxMuted } from './effects.js';
+import { renderer, scene, camera, canvas, updateBanners, BANNER_R, setEnvironment } from './scene.js';
+import { emit, updateParticles, sfx, shake, view, updateFlashes, excite, setSfxMuted, setFlashes } from './effects.js';
 import { loadModel, poseChicken, debugRig, setSkin, renderPortraits } from './chicken.js';
 import { ROSTER, SLOTS } from './roster.js';
 import { buildRoster, setPortraits, renderSelect } from './select.js';
@@ -10,7 +10,7 @@ import { buildSlots, renderSlots } from './lobby.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
-import { updateMusic, cheer, applause, musicState, setMusicMuted, setCrowdMuted } from './music.js';
+import { updateMusic, cheer, applause, musicState, setMusicMuted, setCrowdMuted, setCrowdHere } from './music.js';
 import { say, voiceKey, preloadVoices, setVoiceMuted } from './voice.js';
 import { keys, pressed, pollPad, playerIntent, inputState, camDrag } from './input.js';
 
@@ -244,7 +244,7 @@ function title(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
 const winnerLine = (w, what) => (w === me() ? `You are the ${what}` : `${title(nameOf(w))} is the ${what}`);
 // Online, everyone is just P1-P4 (their slot); against the house it's YOU and CPU.
 const pTag = (slot) => `P${slot + 1}`;
-const who = (w) => (match.mode === 'online' ? pTag(slotOf(w)) + (w === me() ? ' · YOU' : '') : w === me() ? 'YOU' : 'CPU');
+const who = (w) => (match.mode === 'online' ? pTag(slotOf(w)) + (w === me() ? ' · YOU' : '') : w === me() ? 'YOU' : match.mode === 'practice' ? 'DUMMY' : 'CPU');
 
 // Which slots are in the ring: only those are shown (the rest are parked out of sight).
 function setActive(slots) {
@@ -288,6 +288,7 @@ function goTitle(note = '') {
   match.mode = 'cpu';
   match.slot = 0;
   match.room = null;
+  setScenery(false);
   setActive([0, 1]);
   game.phase = 'title';
   game.timeScale = 1;
@@ -299,6 +300,7 @@ function goTitle(note = '') {
 
 // Home, in a ring (the lobby's room view): everyone here stands in the ring behind the card.
 function goLobby() {
+  setScenery(false);
   game.phase = 'title';
   game.phaseT = 0;
   game.timeScale = 1;
@@ -378,6 +380,7 @@ $('ready-btn').addEventListener('click', () => { if (game.phase === 'select') (s
 renderLobby();
 
 function goSelect() {
+  setScenery(false);
   game.phase = 'select';
   game.phaseT = 0;
   Object.assign(sel, { locked: false, cpuLocked: false, cpuT: 0, startIn: 0 });
@@ -416,6 +419,7 @@ function lockIn() {
   if (sel.locked) return;
   sel.locked = true;
   sfx.taiko();
+  if (match.mode === 'practice') { startPractice(); return; }
   if (match.mode === 'cpu') { sel.cpuT = 0; if (sel.cpuLocked) sel.startIn = 1.3; }
   sendPick();
   drawSelect();
@@ -456,6 +460,8 @@ function drawSelect() {
   let list;
   if (match.mode === 'cpu') {
     list = [mine, { slot: 1, i: sel.cpuI, locked: sel.cpuLocked, tag: 'CPU' }];
+  } else if (match.mode === 'practice') {
+    list = [mine];   // just you: the training dummy's waiting on the clifftop
   } else {
     const ps = online.players;
     Object.assign(mine, { tag: `${pTag(match.slot)} · YOU`, badge: pTag(match.slot) });
@@ -538,6 +544,7 @@ function beginTournament() {
 
 function startBout() {
   flow({ kind: 'bout', bout: game.bout, wins: game.wins, results: game.results, rematch: game.rematch, picks: match.picks, active: match.active });
+  setScenery(false);
   showScreen(null);
   canvas.focus();
   // Two face off across the ring; three or four start spread round it, all facing the middle.
@@ -578,6 +585,87 @@ function startBout() {
 }
 
 const idle = () => ({ move: new V2(), face: null, charge: false, push: false, brace: false, dodge: false });
+
+// =====================================================================================
+// Practice: you and a training dummy on a sunny clifftop. No rounds, no verdicts, no clock: push
+// it out (or topple it), and a moment later you're both back on your marks.
+// =====================================================================================
+const practice = { outs: 0, topples: 0, resetAt: 0 };
+const dummy = () => wrestlers[1];
+// The scenery: the clifftop for practice, otherwise the hall (with its crowd and their cameras).
+function setScenery(cliff) {
+  setEnvironment(cliff ? 'cliff' : 'arena');
+  setFlashes(!cliff);
+  setCrowdHere(!cliff);
+}
+function choosePractice() {
+  if (inRoom() && online.players.length > 1) return;
+  if (inRoom()) { online.net.leave(); match.room = null; history.replaceState(null, '', basePath()); }
+  if (online.connecting) goTitle();
+  sfx.clack();
+  preloadVoices();
+  match.mode = 'practice';
+  match.slot = 0;
+  goSelect();
+}
+function startPractice() {
+  Object.assign(practice, { outs: 0, topples: 0 });
+  Object.assign(game, { bout: 1, wins: zeros(), results: [], rematch: false, cues: [], winner: null, timeScale: 1 });
+  setActive([0, 1]);
+  // The dummy wears a different cook from yours, so you can tell yourselves apart.
+  const roast = Math.max(0, ROSTER.findIndex((c) => c.id === 'roast'));
+  setKinds([sel.i, sel.i === roast ? (roast + 1) % ROSTER.length : roast]);
+  $('name-1').textContent = 'DUMMY';
+  $('rank-1').textContent = 'TRAINING DUMMY';
+  setScenery(true);
+  showScreen(null);
+  canvas.focus();
+  resetPractice();
+  game.phase = 'fight';
+  game.phaseT = 0;
+  gyoji('Practise your moves. The dummy will not fight back.', 3.5);
+  practiceTally();
+}
+function resetPractice() {
+  const [you, d] = [player, dummy()];
+  you.reset(-1.45, Math.PI / 2);
+  d.reset(1.45, -Math.PI / 2);
+  you.fallSign = d.fallSign = 1;
+  game.pending = null;
+  contact.t = 0;
+}
+function practiceTally() {
+  const n = practice.outs;
+  $('bout-name').textContent = `Practice · ${n} ring-out${n === 1 ? '' : 's'}${practice.topples ? ` · ${practice.topples} topple${practice.topples === 1 ? '' : 's'}` : ''}`;
+}
+// The dummy just stands its ground, turning to square up to you. It never attacks.
+function dummyIntent() {
+  const d = dummy(), to = player.pos.clone().sub(d.pos);
+  return { ...idle(), face: to.lengthSq() > 0.01 ? to.normalize() : null };
+}
+// Someone's out or down: call it, count it, and reset a moment later.
+function updatePractice() {
+  if (!game.pending) return;
+  if (!game.pending.called) {
+    game.pending.called = true;
+    practice.resetAt = clock.t + 1.6;
+    const d = dummy();
+    if (d.done && !player.done) {
+      const how = d.how;
+      if (how === 'KOPPORI') practice.topples++; else practice.outs++;
+      const what = how === 'KOPPORI' ? 'TOPPLED' : how === 'YORIKIRI' ? 'FORCED OUT' : 'RING-OUT';
+      callout(`<span class="jp">${KANJI[`${how}!`]}</span>${how}!<small>${what} · NICE WORK</small>`, 1.5);
+      say(`${how}!`, { interrupt: true });
+      sfx.taiko();
+    } else {
+      const what = player.how === 'KOPPORI' ? 'YOU LOST YOUR BALANCE' : player.how === 'YORIKIRI' ? 'YOU WERE PUSHED OUT' : 'YOU STEPPED OUT · ISAMIASHI';
+      callout(`OOPS!<small>${what}</small>`, 1.5);
+      if (player.how === 'ISAMIASHI') say('ISAMIASHI!', { interrupt: true });
+    }
+    practiceTally();
+  }
+  if (clock.t >= practice.resetAt) resetPractice();
+}
 
 // After each physics step: has anyone toppled or left the ring? Whoever has is out of this round;
 // once one chicken (or none) is left standing, the round is decided.
@@ -700,6 +788,7 @@ function updateFlow(real) {
       // The referee urges them on when they're locked together.
       if (contact.t > 0.9 && game.realT - game.lastNokotta > 3) { gyoji('Nokotta, nokotta!'); game.lastNokotta = game.realT; }
       contact.t = Math.max(0, contact.t - real * 0.4);
+      if (match.mode === 'practice') { updatePractice(); break; }
       if (!isGuest() && game.pending && clock.t - game.pending.at >= 0.15) decide();
       break;
     case 'decision':
@@ -901,6 +990,7 @@ function homeStart() {
   else if (!online.connecting) chooseCpu();
 }
 $('mode-cpu').addEventListener('click', chooseCpu);
+$('mode-practice').addEventListener('click', choosePractice);
 $('room-cpu').addEventListener('click', chooseCpu);
 $('create-btn').addEventListener('click', () => { sfx.clack(); connect('Building the ring...', false, (ack) => online.net.create(ack)); });
 $('join-btn').addEventListener('click', () => {
@@ -914,10 +1004,12 @@ $('start-btn').addEventListener('click', beginRoom);
 $('home-btn').addEventListener('click', () => { sfx.clack(); goTitle(); });
 
 // ---------- In the HUD: home, music and sound effects ----------
-// Home ends the match: online, everyone back to the lobby (still in the ring); against the CPU, back to choosing chickens.
+// Home ends the match: online, everyone back to the lobby (still in the ring); against the CPU, back to
+// choosing chickens; from practice, back to the home screen.
 $('game-home').addEventListener('click', (e) => {
   if (e.detail) e.currentTarget.blur();
   if (match.mode === 'online' && online.net) online.net.send({ type: 'home' });
+  else if (match.mode === 'practice') goTitle();
   else goSelect();
 });
 // Music, and sound effects (incl. the announcer and the crowd): each player's choice, remembered on their device.
@@ -1010,7 +1102,7 @@ function tick(now, draw) {
   if (game.phase === 'title' && pressed.start && !POSE) { pressed.start = false; homeStart(); }
   if (game.phase === 'select' && pressed.start) { pressed.start = false; lockIn(); }
   updateFlow(real);
-  updateMusic(game.phase, real);
+  updateMusic(match.mode === 'practice' && game.phase === 'fight' ? 'practice' : game.phase, real);
 
   // ?pose=push (or brace, windup, charge, dodge, idle, out): a close-up of your chicken holding that pose.
   if (POSE) {
@@ -1049,6 +1141,7 @@ function tick(now, draw) {
             if (steps > 0) it.push = it.dodge = false;   // a click or tap counts once
             return it;
           }
+          if (match.mode === 'practice') return dummyIntent();
           if (!remote) return brain.think(FIXED_DT);
           const r = online.remote[s], it = { ...r, move: r.move.clone(), face: null };
           r.push = r.dodge = false;
@@ -1089,4 +1182,4 @@ function tick(now, draw) {
 requestAnimationFrame(frame);
 
 // For testing in the console: window.roast.game, .wrestlers, .player (blue), .cpu (red)
-window.roast = { musicState, game, wrestlers, player, cpu, brain, match, online, startBout, beginTournament, debugRig };
+window.roast = { musicState, game, wrestlers, player, cpu, brain, match, online, practice, startBout, beginTournament, debugRig };

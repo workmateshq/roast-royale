@@ -31,6 +31,7 @@ Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 The home screen is the lobby: a card with four player slots, P1 to P4 (blue, red, green and gold), showing who's in the ring.
 
 - **Versus CPU** (the button on the home screen, or Enter): pick your chicken, the house picks a rival, best of three.
+- **Practice** (next to Versus CPU): pick your chicken and train against a passive training dummy on a sunny clifftop meadow above the sea. No rounds, no clock: push it out or topple it and you're both reset a moment later, with a running tally. Home goes back to the home screen.
 - **Online, 2 to 4 players**: **Create a ring** to get a 4-letter code (or invite link) and send it to your mates, or type theirs and **Join**. Once you're in a ring, the lobby shows P1 to P4, the code and a Copy link button, and the host (whoever created it) presses **Start game with N players** once at least one mate has joined; everyone then chooses their chicken, and the tournament starts when they've all readied up. **Create or join a new room** leaves the ring; the select screen's Back to lobby (and Home during a fight) takes everyone in the ring back to the lobby. Link rooms work too: share https://zakrowling.github.io/roast-royale/mate and nobody needs a code; opening it lands you straight in that ring's lobby. The first person to open it hosts and everyone else joins; if the host leaves, the next player takes over, so the ring stays open while anyone's in it. Any 2–16 letters, numbers or dashes work as a room name (`/roast-royale/<name>` or `?room=<name>`), and an embedding app can pass `?group=<session id>` to give each group its own private ring. Mates can join while the others are choosing chickens, but not mid-tournament. Everyone wrestles at once as P1 to P4, in their slot's mawashi (three or four start in a cross: P1 facing P2, P3 facing P4): a chicken that's pushed out or topples is out of that round, and the last chicken standing wins it. First to two round wins is the champion. The host runs the fight; the others send their controls and see the host's fight.
 
 | Chicken | Cook | Style |
@@ -41,6 +42,7 @@ The home screen is the lobby: a card with four player slots, P1 to P4 (blue, red
 | Katsudon | Battered | Heavy shove, crunchy armour |
 | Kogeta | Extra crispy (charcoal black) | Light and quick, but brittle |
 | Funiku | Rotten (grey, mouldy, fuzzy) | Hits hard, falls apart |
+| Rappu | Raw and white, in a tied roasting bag | Slippery and cushioned |
 
 Win a round by pushing your rival out of the ring (Yorikiri), or draining their balance to 100% so they topple (Koppori). Stepping out on your own is Isamiashi. Best of three rounds.
 

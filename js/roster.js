@@ -34,6 +34,11 @@ export const ROSTER = [
     blurb: 'Found at the back of the fridge. Nobody wants to grapple with it, which is half the battle.',
     stats: { mass: 1.05, speed: 0.88, turn: 0.95, take: 1.15, power: 1.12 },
   },
+  {
+    id: 'bagged', name: 'RAPPU', rank: 'MAKUSHITA', cook: 'Oven Bagged', skin: 6,
+    blurb: 'Still sealed in the roasting bag. Slippery, cushioned, and tied off with a jaunty ponytail.',
+    stats: { mass: 0.98, speed: 0.96, turn: 1.08, take: 0.82, power: 0.94 },
+  },
 ];
 
 // The four bars shown on the select screen, each 0..1.

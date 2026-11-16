@@ -157,6 +157,8 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .lobby-view > .mode-btn.primary { padding: 12px 22px; }
 .cpu-btn { margin-top: 4px; padding: 10px 22px; }
 .cpu-btn b { font-size: 18px; }
+.mode-row { display: flex; gap: 10px; width: 100%; }
+.mode-row .mode-btn { flex: 1 1 0; min-width: 0; }
 #start-btn b { font-size: 19px; letter-spacing: 0.08em; }
 .lobby-card .room-bar { width: 100%; }
 .or { color: var(--muted); font-family: var(--serif); letter-spacing: 0.1em; }

@@ -170,11 +170,20 @@ function popFlash() {
   f.sprite.position.copy(f.light.position);
   f.t = 0;
 }
-export function excite(n = 6) { buzz = Math.min(30, buzz + n * 2); }
+let flashesOn = true;
+export function excite(n = 6) { if (flashesOn) buzz = Math.min(30, buzz + n * 2); }
+// No crowd out on the practice clifftop: no flashes.
+export function setFlashes(on) {
+  flashesOn = on;
+  if (on) return;
+  buzz = 0;
+  for (const f of flashes) f.t = 1;
+}
 export function updateFlashes(dt, intensity = 1) {
+  if (!flashesOn) intensity = 0;
   nextFlash -= dt * intensity;
   if (nextFlash <= 0) { popFlash(); if (Math.random() < 0.35) popFlash(); nextFlash = rand(0.02, 0.2); }
-  if (buzz > 0 && Math.random() < dt * 30) { popFlash(); buzz--; }
+  if (buzz > 0 && flashesOn && Math.random() < dt * 30) { popFlash(); buzz--; }
   for (const f of flashes) {
     f.t = Math.min(1, f.t + dt / 0.14);
     const k = f.t < 1 ? Math.pow(1 - f.t, 2) : 0;

@@ -1,7 +1,7 @@
 // Roast Royale: camera, animation, HUD, the tournament flow and the main loop.
 import * as THREE from 'three';
 import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES, V2, rand, wrap, clamp, smoothstep } from './config.js';
-import { renderer, scene, camera, canvas } from './scene.js';
+import { renderer, scene, camera, canvas, updateBanners } from './scene.js';
 import { emit, updateParticles, sfx, shake, view, updateFlashes, excite } from './effects.js';
 import { loadModel, poseChicken, debugRig, setSkin, renderPortraits } from './chicken.js';
 import { ROSTER } from './roster.js';
@@ -64,6 +64,7 @@ function updateCamera(dt) {
 // =====================================================================================
 // Animation: squash, lean, lunge, waddle and wobble from each wrestler's state.
 // =====================================================================================
+const SHIKO_LEG = 1.15;   // seconds per stamp
 function animate(w, t, dt) {
   const v = w.vis, a = v.anim;
   let pitch = 0, roll = 0, lunge = 0, crouch = 0, squash = 1 + Math.sin(t * 2.1) * 0.012;   // breathing
@@ -90,6 +91,28 @@ function animate(w, t, dt) {
     }
   }
   if (w.teeter > 0 && !w.done) { pitch += Math.sin(t * 12) * 0.12 * w.teeter; roll += Math.sin(t * 9) * 0.1 * w.teeter; armPose = 'flail'; }   // windmilling at the straw
+  let shiko = null;
+  if (game.phase === 'select' && w.shikoT !== undefined && w.shikoT < SHIKO_LEG * 2) {
+    // Shiko: throw the weight over one leg, raise the other high out to the side, then stamp it down.
+    const prevT = w.shikoT;
+    w.shikoT += dt;
+    const leg = w.shikoT < SHIKO_LEG ? 0 : 1;          // the chicken's right leg first, then its left
+    const u = (w.shikoT % SHIKO_LEG) / SHIKO_LEG;
+    const lift = u < 0.5 ? smoothstep(0, 0.5, u) : u < 0.6 ? 1 - (u - 0.5) / 0.1 : 0;
+    const landing = u >= 0.6 ? Math.max(0, 1 - (u - 0.6) / 0.4) : 0;
+    shiko = { leg, lift };
+    roll = (leg ? 1 : -1) * 0.2 * lift;                 // lean away from the raised leg
+    crouch = 0.25 * lift + 0.8 * landing;               // sink as it lands
+    squash = 1 - 0.06 * landing;
+    armPose = 'shiko';
+    // The stamp itself: a thud and a puff of sand under the foot.
+    if ((prevT % SHIKO_LEG) / SHIKO_LEG < 0.6 && u >= 0.6) {
+      const side = (leg ? 1 : -1) * 0.32, h = w.heading;
+      emit(new THREE.Vector3(w.pos.x + Math.cos(h) * side, PLATFORM_H + 0.05, w.pos.y - Math.sin(h) * side), 12,
+        { colour: 0xd2b07a, speed: 1.4, up: 0.5, life: 0.6, grav: 2, size: 0.16, grow: 0.5, alpha: 0.5 });
+      sfx.thud(0.7);
+    }
+  }
   if (game.phase === 'ready' && game.phaseT > 1.9) { crouch = 0.8; pitch = 0.12; armPose = 'brace'; }                                       // the crouch before the clash
   if (game.winner === w && (game.phase === 'decision' || game.phase === 'screen' || game.phase === 'champion')) {
     roll = Math.sin(game.realT * 3.2) * 0.12;                                                                                           // a victory shiko stomp
@@ -105,7 +128,7 @@ function animate(w, t, dt) {
   const onBack = Math.max(0, -a.pitch);   // how far it's gone over backwards
   // Tipping over pivots on the feet; lifted a little as it goes so it rolls onto its side, not into the sand.
   v.body.position.set(0, Math.abs(Math.sin(a.roll)) * 0.2 + Math.sin(Math.min(Math.PI / 2, onBack)) * 0.55, a.lunge - Math.sin(Math.min(Math.PI / 2, onBack)) * 0.5);
-  poseChicken(v, w, dt, { crouch: a.crouch, squash: a.squash, armPose, canWalk });
+  poseChicken(v, w, dt, { crouch: a.crouch, squash: a.squash, armPose, canWalk, shiko });
   const ground = Math.abs(w.pos.x) < PLATFORM / 2 && Math.abs(w.pos.y) < PLATFORM / 2 ? PLATFORM_H : 0;
   v.blob.position.set(w.pos.x, ground + 0.012, w.pos.y);
   v.blob.material.opacity = 0.45 * clamp(1 - (w.y - ground) / 2, 0, 1);
@@ -216,6 +239,7 @@ buildRoster((i) => {
   sendPick();
   drawSelect();
 });
+$('select-back').addEventListener('click', () => { if (game.phase === 'select') goTitle(); });
 $('ready-btn').addEventListener('click', () => { if (game.phase === 'select') (sel.locked ? unlock : lockIn)(); });
 
 function goSelect() {
@@ -281,7 +305,11 @@ function drawSelect() {
   // The two chickens in the ring wear the picks (and crouch once locked in).
   const blue = sides.p.waiting ? player.kind : ROSTER[sides.p.i];
   const red = sides.a.waiting ? cpu.kind : ROSTER[sides.a.i];
+  const was = [player.kind, cpu.kind];
   setKinds(ROSTER.indexOf(blue), ROSTER.indexOf(red));
+  // A newly chosen chicken shows itself off with a shiko: right leg, then left.
+  if (player.kind !== was[0] || game.phaseT < 0.05) player.shikoT = 0;
+  if (cpu.kind !== was[1] || game.phaseT < 0.05) cpu.shikoT = 0;
   player.set(sides.p.locked ? 'brace' : 'idle');
   cpu.set(sides.a.locked ? 'brace' : 'idle');
   if (match.mode === 'online') {
@@ -326,7 +354,7 @@ const pick = (a) => a[(Math.random() * a.length) | 0];
 const flow = (msg) => { if (match.mode === 'online' && online.net && online.net.isHost) online.net.send({ type: 'flow', ...msg }); };
 
 function boutTitle() {
-  return `Round ${game.bout}: ${BOUT_NAMES[Math.min(game.bout, BOUT_NAMES.length) - 1]}${game.rematch ? ' (Rematch)' : ''}`;
+  return `Round ${game.bout}${game.rematch ? ' (Rematch)' : ''}`;
 }
 
 function beginTournament() {
@@ -418,29 +446,33 @@ function enterDecision() {
 const tally = () => `${label(player)} ${game.wins.p} · ${game.wins.a} ${label(cpu)}`;
 const waitCta = () => (isGuest() ? 'WAITING FOR YOUR MATE TO CONTINUE...' : null);
 
+// The winning technique, written as it would be on the banzuke.
+const KANJI = { 'YORIKIRI!': '寄り切り', 'KOPPORI!': 'こっぽり', 'ISAMIASHI!': '勇み足', 'MONO-II!': '物言い', 'YŪSHŌ': '優勝' };
 function showDecision() {
   const d = game.decision;
   $('dec-gloss').textContent = d.gloss;
   $('dec-kimarite').textContent = d.kimarite;
+  $('dec-kanji').textContent = KANJI[d.kimarite] || '';
   $('dec-winner').textContent = d.winner ? `WINNER: ${label(d.winner === 'p' ? player : cpu)}` : 'NO DECISION';
-  $('dec-flavour').textContent = d.flavour;
+  $('dec-flavour').textContent = '';
   $('dec-tally').textContent = tally();
   $('dec-cta').textContent = waitCta() || 'PRESS ENTER TO CONTINUE';
   showScreen('decision');
 }
 
+const CHAMPION_WAIT = 10;   // seconds on the champion screen
 function showChampion() {
   const champ = game.wins.p > game.wins.a ? player : cpu;
   game.winner = champ;
   const youWon = champ === me();
   $('dec-gloss').textContent = 'THE TOURNAMENT IS DECIDED';
   $('dec-kimarite').textContent = 'YŪSHŌ';
+  $('dec-kanji').textContent = KANJI['YŪSHŌ'];
   $('dec-winner').textContent = `CHAMPION: ${label(champ)}`;
   $('dec-flavour').textContent = youWon
     ? 'The Emperor\'s Cup is presented, with gravy. A new yokozuna of the rotisserie is crowned.'
     : `${champ.kind.name} takes the Emperor's Cup, as is tradition. Return when you are better seasoned.`;
   $('dec-tally').textContent = tally();
-  $('dec-cta').textContent = waitCta() || 'PRESS ENTER TO CHOOSE AGAIN';
   showScreen('decision');
   game.phase = 'champion';
   game.phaseT = 0;
@@ -472,8 +504,12 @@ function updateFlow(real) {
         else { if (!game.rematch) game.bout++; startBout(); }
       }
       break;
-    case 'champion':
-      if (pressed.start && game.phaseT > 0.5 && !isGuest()) { flow({ kind: 'select' }); goSelect(); }
+    case 'champion': {
+      // Back to choosing a chicken after 10 seconds (or sooner, with Enter).
+      const left = Math.max(0, Math.ceil(CHAMPION_WAIT - game.phaseT));
+      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `PRESS ENTER TO CHOOSE AGAIN · ${left}`;
+      if (!isGuest() && ((pressed.start && game.phaseT > 0.5) || game.phaseT >= CHAMPION_WAIT)) { flow({ kind: 'select' }); goSelect(); }
+    }
       break;
   }
 }
@@ -754,6 +790,7 @@ function tick(now, draw) {
   updateFlashes(real, game.phase === 'fight' ? 1 + Math.min(2, contact.t) : 0.6);
   updateCamera(real);
   if (POSE) { camera.position.set(Math.sin(POSE.az) * 2.6, PLATFORM_H + 1.1, Math.cos(POSE.az) * 2.6); camera.lookAt(0, PLATFORM_H + 0.7, 0); }
+  updateBanners();
   updateHud(real);
   if (draw) renderer.render(scene, camera);
 }

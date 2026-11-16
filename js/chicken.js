@@ -409,6 +409,13 @@ export function poseChicken(v, w, dt, o) {
     const reach = pelvisY / (L * Math.max(0.6, Math.cos(ax) * Math.cos(az)));
     leg.scale.set(1, reach * (1 - 0.3 * lift * Math.min(1, r.amp / 0.25)), 1);
   });
+  // Shiko: one leg swung high out to the side (then stamped down), the other planted.
+  if (o.shiko) {
+    const k = o.shiko.leg, up = o.shiko.lift;
+    const leg = r.legs[k];
+    leg.rotation.set(-0.15 * up, 0, (k ? 1 : -1) * (splay + 1.05 * up));
+    leg.scale.set(1, up > 0.05 ? 1 : leg.scale.y, 1);
+  }
 
   // The upper body: weight over the planted leg, a lean into the walk, squash for effort.
   const sway = 0.07 * Math.min(1, r.amp / 0.3) * Math.sin(r.phase * Math.PI * 2);
@@ -430,6 +437,7 @@ export function poseChicken(v, w, dt, o) {
     dodge:   [0.1, 0.4, 0.2],            // lifted out for balance
     flail:   [-0.15, 0.45, 0.3],         // windmilling at the straw / staggering
     victory: [-0.2, 0.5, 0.25],
+    shiko:   [-0.15, 0.55, 0.2],         // wings out wide for balance
     flap:    [-0.1, 0.45, 0.25],         // on its back: wings flapping helplessly
     down:    [0.1, 0.35, 0.15],
   }[o.armPose] || [0, 0, 0];

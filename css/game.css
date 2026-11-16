@@ -73,6 +73,9 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 #decision .kimarite { font-family: var(--serif); font-weight: 800; font-size: clamp(56px, 11vw, 150px); letter-spacing: 0.1em; margin: 0; color: var(--ink); text-shadow: 0 6px 30px #000; }
 #decision .gloss { font-family: var(--serif); color: var(--gold); letter-spacing: 0.2em; font-size: clamp(14px, 1.6vw, 20px); }
 #decision .winner { font-family: var(--arcade); font-weight: 700; font-size: clamp(22px, 3vw, 38px); letter-spacing: 0.22em; margin-top: 14px; }
+#decision .flavour:empty { display: none; }
+#decision .kim-kanji { font-size: clamp(22px, 3vw, 36px); letter-spacing: 0.3em; margin: 6px 0 -6px; }
+#decision .kim-kanji:empty { display: none; }
 #decision .flavour { font-family: var(--serif); font-size: clamp(14px, 1.5vw, 19px); color: var(--muted); margin-top: 10px; max-width: 640px; }
 #decision .tally { margin-top: 14px; font-size: 18px; letter-spacing: 0.2em; }
 @media (max-width: 720px) { .hints { display: none; } .meter { width: 40vw; padding: 8px 10px; } .bout .name { font-size: 13px; } }
@@ -148,7 +151,6 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .tile.cur-p.cur-a { border-color: #c79bff; }
 .tile.cur-p .b-p, .tile.cur-a .b-a { display: block; }
 .tile.lock-p .b-p, .tile.lock-a .b-a { box-shadow: 0 0 0 2px var(--gold); }
-.select-foot { font-size: 13px; letter-spacing: 0.2em; color: var(--muted); }
 @media (max-width: 760px) { .fighter { top: auto; bottom: 230px; width: 44vw; padding: 8px 10px; } .fstats { display: none; } }
 
 .ready-btn { display: block; margin: 4px auto 0; min-width: 200px; padding: 6px 28px; }

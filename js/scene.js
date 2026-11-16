@@ -17,8 +17,8 @@ renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 export const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0d0907);
-scene.fog = new THREE.Fog(0x0d0907, 14, 30);
+scene.background = new THREE.Color(0x000000);
+scene.fog = new THREE.Fog(0x000000, 14, 30);
 // A soft studio reflection so roast skin glistens without washing out the warm spotlight.
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -116,19 +116,20 @@ softDot.wrapS = softDot.wrapT = THREE.ClampToEdgeWrapping;
 // starting lines (shikiri-sen), the hanging roof with its four tassels, and festival banners.
 // =====================================================================================
 const arena = new THREE.Group();
+const banners = [];   // { group, mats } for fading out the ones the camera gets close to
 scene.add(arena);
 {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.85 }));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
-  // The hall floor fades to black just behind the banners, so the light ends at the edge of the ring.
+  // The hall floor fades to black just past the platform: the light ends at the ring, and the crowd is out there in the dark.
   floor.material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vHall;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHall = (modelMatrix * vec4(transformed, 1.0)).xz;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vHall;')
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb *= 1.0 - smoothstep(12.5, 16.0, length(vHall));');
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.rgb *= 1.0 - smoothstep(7.6, 10.0, length(vHall));');
   };
   arena.add(floor);
 
@@ -233,10 +234,10 @@ scene.add(arena);
     tex.repeat.set(1, 1);
     const a = (i / 14) * Math.PI * 2;
     const nobori = new THREE.Group();
-    nobori.position.set(Math.sin(a) * 14.5, 0, Math.cos(a) * 14.5);
+    nobori.position.set(Math.sin(a) * 9.4, 0, Math.cos(a) * 9.4);   // just off the platform, at the edge of the light
     nobori.lookAt(0, 0, 0);
     // The banner hangs from a crossbar on a tall pole, its foot a little off the floor.
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 4.4), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide }));
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 4.4), new THREE.MeshStandardMaterial({ map: tex, color: 0x9a9a9a, roughness: 0.9, side: THREE.DoubleSide }));
     flag.position.set(0, 2.85, 0);
     flag.castShadow = true;
     nobori.add(flag);
@@ -259,10 +260,26 @@ scene.add(arena);
     pool.position.set(-0.2, 0.01, 0.15);
     nobori.add(pool);
     arena.add(nobori);
+    const mats = [];
+    nobori.traverse((m) => { if (m.material && !mats.includes(m.material)) mats.push(m.material); });
+    for (const m of mats) { m.transparent = true; m.userData.baseOpacity = m.opacity; }
+    banners.push({ group: nobori, mats });
   }
-  // The banners just catch a little warm light from above, rather than the main spot spilling onto them.
-  const glow = new THREE.SpotLight(0xffc98a, 14, 16.5, 1.15, 0.6, 1.6);
-  glow.position.set(0, 9, 0);
+  // A soft wash from above that reaches the banners round the ring, but not the hall beyond them.
+  const glow = new THREE.SpotLight(0xffc98a, 30, 13, 0.75, 0.5, 1.4);
+  glow.position.set(0, 10, 0);
   glow.target.position.set(0, 0, 0);
   arena.add(glow, glow.target);
+}
+
+// The camera never passes through a banner: any it gets near fade away, and come back as it moves off.
+const _bp = new THREE.Vector3();
+export function updateBanners() {
+  for (const b of banners) {
+    b.group.getWorldPosition(_bp);
+    const d = Math.hypot(camera.position.x - _bp.x, camera.position.z - _bp.z);
+    const k = THREE.MathUtils.smoothstep(d, 1.2, 3.2);
+    b.group.visible = k > 0.01;
+    for (const m of b.mats) m.opacity = m.userData.baseOpacity * k;
+  }
 }

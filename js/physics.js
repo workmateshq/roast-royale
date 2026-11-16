@@ -1,5 +1,6 @@
 // Roast Royale: wrestlers and the arcade physics (momentum, turning lag, the four moves,
 // balance, collisions and the straw-bale edge). Runs at a fixed step for determinism.
+import { cheer } from './music.js';
 import * as THREE from 'three';
 import { RING_R, BODY_R, PLATFORM, PLATFORM_H, FIXED_DT, MOVE, V2, wrap, clamp, faceVec } from './config.js';
 import { emit, sfx, shake, view, excite } from './effects.js';
@@ -298,5 +299,5 @@ function impactFx(a, b, s) {
   sfx.thud(Math.min(1.4, s / 6));
   shake(Math.min(0.35, s * 0.04));
   view.zoomPunch = 1;
-  if (s > 5) excite(3);
+  if (s > 5) { excite(3); cheer(); }
 }

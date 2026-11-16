@@ -31,6 +31,7 @@ const MENU_PHASES = ['title', 'online', 'select'];
 
 // Call every frame with the game phase and the real time passed.
 export function updateMusic(phase, dt) {
+  updateCrowd(phase, dt);
   want = MENU_PHASES.includes(phase) ? 'menu' : 'fight';
   if (!unlocked) return;
   for (const [name, p] of Object.entries(players)) {
@@ -43,5 +44,47 @@ export function updateMusic(phase, dt) {
     } else if (p.level === 0 && !p.el.paused) {
       p.el.pause();
     }
+  }
+}
+
+// ---------- The crowd ----------
+// A random cheer over the music at big moments (a heavy collision, a round won), never too
+// often, and a long round of applause for the champion. Kept quiet: it's ambience.
+const CHEERS = ['big-cheer01', 'long-cheer', 'oooh-cheer'].map((n) => crowdClip(n, 0.2));
+const APPLAUSE = crowdClip('long-applause', 0.3);
+function crowdClip(name, vol) {
+  const el = new Audio(`assets/cheers/${name}.mp3`);
+  el.preload = 'auto';
+  return { el, vol, level: 0 };
+}
+let lastCheer = -1, cheerAt = -1e9;
+function start(c) {
+  if (!unlocked) return;
+  c.level = 1;
+  c.el.volume = c.vol;
+  c.el.currentTime = 0;
+  c.el.play().catch(() => {});
+}
+
+// force: always cheer (a round won); otherwise only if the crowd hasn't just cheered.
+export function cheer(force = false) {
+  const now = performance.now() / 1000;
+  if (!force && now - cheerAt < 6) return;
+  cheerAt = now;
+  let i = (Math.random() * CHEERS.length) | 0;
+  if (i === lastCheer) i = (i + 1) % CHEERS.length;
+  lastCheer = i;
+  start(CHEERS[i]);
+}
+export function applause() { start(APPLAUSE); }
+
+// Back on the menus, the crowd fades away.
+export function updateCrowd(phase, dt) {
+  if (!MENU_PHASES.includes(phase)) return;
+  for (const c of [...CHEERS, APPLAUSE]) {
+    if (c.el.paused) continue;
+    c.level = Math.max(0, c.level - dt / FADE);
+    c.el.volume = c.level * c.vol;
+    if (c.level === 0) c.el.pause();
   }
 }

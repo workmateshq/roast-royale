@@ -9,7 +9,7 @@ import { buildRoster, setPortraits, renderSelect } from './select.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
-import { updateMusic } from './music.js';
+import { updateMusic, cheer, applause } from './music.js';
 import { keys, pressed, pollPad, playerIntent, inputState, camDrag } from './input.js';
 
 // =====================================================================================
@@ -407,6 +407,7 @@ function decide() {
 
 function enterDecision() {
   excite(12);
+  cheer(true);
   game.winner = game.decision.winner ? (game.decision.winner === 'p' ? player : cpu) : null;
   game.phase = 'decision';
   game.phaseT = 0;
@@ -444,6 +445,7 @@ function showChampion() {
   game.phase = 'champion';
   game.phaseT = 0;
   sfx.taiko(); sfx.taiko(0.25); sfx.taiko(0.5);
+  applause();
 }
 
 function updateFlow(real) {
@@ -500,7 +502,7 @@ function unpackW(w, a) {
     sfx.thud(Math.min(1.3, (w.balance - bal) / 14));
     shake(Math.min(0.3, (w.balance - bal) * 0.015));
     emit(new THREE.Vector3(w.pos.x, PLATFORM_H + 0.5, w.pos.y), 10, { colour: 0xc8842c, speed: 2.4, up: 2, life: 0.7, size: 0.05 });
-    if (w.balance - bal > 14) excite(3);
+    if (w.balance - bal > 14) { excite(3); cheer(); }
   }
 }
 

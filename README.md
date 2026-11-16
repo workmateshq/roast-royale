@@ -49,7 +49,8 @@ Win a round by pushing your rival out of the ring (Yorikiri), or draining their 
 - `js/physics.js`: wrestlers, momentum, the four moves, balance, collisions and the ring edge.
 - `js/ai.js`: the CPU opponent's state machine.
 - `js/input.js`: keyboard, mouse and gamepad.
-- `js/effects.js`: particles, synthesised sounds and camera shake.
+- `js/effects.js`: particles, synthesised sounds (with hall reverb) and camera shake.
+- `js/music.js`: looping background music (menus and fights), crossfaded by game phase.
 - `js/roster.js`: the chickens to choose from and their stats.
 - `js/select.js`: the choose-your-chicken screen.
 - `js/online.js`, `js/net/`: online play (PeerJS); `404.html` turns `/roast-royale/<name>` links into rooms.
@@ -62,5 +63,7 @@ To check a pose close up, open `?pose=push` (or `brace`, `windup`, `charge`, `do
 ## Credits
 
 "Roast chicken" (https://skfb.ly/6XHDu) by daidaiaoko is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/). The game stands it upright, rigs it and paints a mawashi onto it.
+
+Music: `assets/hitslab-japan-japanese-music.mp3` (menus) and `assets/sonican-taiko-energy.mp3` (fights).
 
 Three.js is loaded from the jsDelivr CDN, PeerJS from unpkg.

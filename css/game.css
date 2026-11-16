@@ -120,7 +120,7 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .ftag { font-size: 13px; letter-spacing: 0.22em; font-weight: 700; color: var(--muted); }
 .fighter.left .ftag { color: #8fa6ff; }
 .fighter.right .ftag { color: #ff8a9a; }
-.fname { font-family: var(--serif); font-weight: 800; font-size: clamp(18px, 2vw, 26px); letter-spacing: 0.06em; margin-top: 4px; }
+.fname { font-family: var(--serif); font-weight: 800; font-size: clamp(18px, 2vw, 26px); letter-spacing: 0.06em; margin-top: 4px; height: 1.3em; line-height: 1.3em; white-space: nowrap; }
 .fcook { color: var(--gold); letter-spacing: 0.12em; font-size: 14px; margin-top: 2px; }
 .fstats { margin-top: 12px; display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; align-items: center; font-size: 12px; letter-spacing: 0.16em; color: var(--muted); }
 .fighter.right .fstats { direction: rtl; }

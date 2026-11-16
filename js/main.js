@@ -9,6 +9,7 @@ import { buildRoster, setPortraits, renderSelect } from './select.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
+import { updateMusic } from './music.js';
 import { keys, pressed, pollPad, playerIntent, inputState, camDrag } from './input.js';
 
 // =====================================================================================
@@ -695,6 +696,7 @@ function tick(now, draw) {
   if (game.phase === 'title' && pressed.start && !POSE) { pressed.start = false; (titleFocus === 0 ? chooseCpu : chooseOnline)(); }
   if (game.phase === 'select' && pressed.start) { pressed.start = false; lockIn(); }
   updateFlow(real);
+  updateMusic(game.phase, real);
 
   // ?pose=push (or brace, windup, charge, dodge, idle, out): a close-up of your chicken holding that pose.
   if (POSE) {

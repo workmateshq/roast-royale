@@ -459,7 +459,7 @@ function showDecision() {
   $('dec-winner').textContent = d.winner ? `WINNER: ${label(d.winner === 'p' ? player : cpu)}` : 'NO DECISION';
   $('dec-flavour').textContent = '';
   $('dec-tally').textContent = tally();
-  $('dec-cta').textContent = waitCta() || 'PRESS ENTER TO CONTINUE';
+  $('dec-cta').textContent = waitCta() || 'PRESS ANY KEY TO CONTINUE';
   showScreen('decision');
 }
 
@@ -510,7 +510,7 @@ function updateFlow(real) {
     case 'champion': {
       // Back to choosing a chicken after 10 seconds (or sooner, with Enter).
       const left = Math.max(0, Math.ceil(CHAMPION_WAIT - game.phaseT));
-      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `PRESS ENTER TO CHOOSE AGAIN · ${left}`;
+      $('dec-cta').textContent = isGuest() ? `CHOOSE YOUR CHICKEN IN ${left}` : `PRESS ANY KEY TO CHOOSE AGAIN · ${left}`;
       if (!isGuest() && ((pressed.start && game.phaseT > 0.5) || game.phaseT >= CHAMPION_WAIT)) { flow({ kind: 'select' }); goSelect(); }
     }
       break;
@@ -681,6 +681,8 @@ addEventListener('keydown', (e) => {
   const k = e.key;
   // Menus handle Enter themselves (so choosing a mode doesn't also lock in a chicken).
   if (k === 'Enter' && ['title', 'online', 'select'].includes(game.phase)) pressed.start = false;   // (input.js's listener runs first)
+  // On the result screens, any key moves on (not a key still held down from the fight).
+  if ((game.phase === 'screen' || game.phase === 'champion') && !e.repeat && !['Shift', 'Control', 'Alt', 'Meta'].includes(k)) pressed.start = true;
   if (game.phase === 'title') {
     if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'w' || k === 's' || k === 'ArrowLeft' || k === 'ArrowRight') { focusTitle(titleFocus + 1); e.preventDefault(); }
     if (k === 'Enter') (titleFocus === 0 ? chooseCpu : chooseOnline)();

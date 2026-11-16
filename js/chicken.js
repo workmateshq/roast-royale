@@ -389,7 +389,7 @@ function bagMaterial(H) {
   // edges (Fresnel) and in sharp wrinkle highlights, like real roasting-bag plastic.
   const m = new THREE.MeshPhysicalMaterial({
     color: 0x000000, transparent: true, opacity: 1, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.0,   // no diffuse: only reflections show
-    specularIntensity: 1, depthWrite: false, side: THREE.FrontSide, envMapIntensity: 2.6,
+    specularIntensity: 1, depthWrite: false, side: THREE.FrontSide, envMapIntensity: 4.2,
   });
   const u = { uPuff: { value: 0.009 * H }, uScale: { value: 1 / H } };
   const NOISE = `
@@ -405,7 +405,8 @@ function bagMaterial(H) {
       float a = bagRidge(vec3(p.x * 7.0, p.y * 22.0, p.z * 7.0));
       float b = bagRidge(vec3(p.x * 19.0 + 3.1, p.y * 8.0, p.z * 19.0));
       float c = bagRidge(vec3((p.x + p.y) * 15.0 + 7.3, (p.y - p.z) * 15.0, p.z * 11.0));
-      return pow(max(a, max(b, c)), 4.0);
+      float d = bagRidge(vec3(p.x * 34.0 + 1.7, (p.y + p.z) * 30.0, (p.z - p.x) * 34.0));
+      return max(pow(max(a, max(b, c)), 3.5), 0.8 * pow(d, 5.0));
     }`;
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
@@ -429,7 +430,7 @@ function bagMaterial(H) {
           float w0 = bagWrinkle(vBag);
           vec3 g = vec3(bagWrinkle(vBag + vec3(e, 0, 0)), bagWrinkle(vBag + vec3(0, e, 0)), bagWrinkle(vBag + vec3(0, 0, e))) - w0;
           vec3 gv = normalMatrix * (g / e);
-          normal = normalize(normal - 0.035 * (gv - dot(gv, normal) * normal));
+          normal = normalize(normal - 0.06 * (gv - dot(gv, normal) * normal));
         }`)
       .replace('#include <dithering_fragment>', `#include <dithering_fragment>
         {
@@ -440,11 +441,11 @@ function bagMaterial(H) {
           float crease = smoothstep(0.45, 0.9, bagWrinkle(vBag));
           // Clear film: the chicken shows through. What you see is the reflections (shine), a pale sheen
           // at the edges, and thin bright lines along the creases.
-          gl_FragColor.rgb = gl_FragColor.rgb + vec3(0.85) * (0.35 * fres + 0.35 * crease);
-          gl_FragColor.a = clamp(0.03 + 0.4 * fres + 0.9 * smoothstep(0.15, 0.8, shine) + 0.22 * crease, 0.0, 0.85);
+          gl_FragColor.rgb = gl_FragColor.rgb * 1.25 + vec3(0.9) * (0.4 * fres + 0.45 * crease);
+          gl_FragColor.a = clamp(0.04 + 0.45 * fres + 0.95 * smoothstep(0.12, 0.7, shine) + 0.3 * crease, 0.0, 0.88);
         }`);
   };
-  m.customProgramCacheKey = () => 'roast-bag-6';
+  m.customProgramCacheKey = () => 'roast-bag-7';
   return m;
 }
 // The gathered neck of the bag: a twist-tie band and a crumpled tuft of plastic flaring up above it.

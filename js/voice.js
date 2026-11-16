@@ -8,7 +8,7 @@ const FILES = {
   'YORIKIRI!': 'yorikiri', 'ISAMIASHI!': 'isamashi', 'KOPPORI!': 'koppori', 'YŪSHŌ': 'yusho',
   rosuto: 'rosuto', yakitori: 'yakitori', reito: 'reito', katsudon: 'katsudon', kogeta: 'kogeta',
 };
-const LOUDNESS = 1.15;   // the music plays at 0.22-0.4, so this sits clearly above it
+const LOUDNESS = 0.7;    // a little above the music (0.22-0.4) without shouting over it
 const GAP = 0.12;        // seconds between queued words
 
 const buffers = {};

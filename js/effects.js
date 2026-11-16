@@ -62,6 +62,34 @@ export function ac() {
   if (audio.state === 'suspended') audio.resume();
   return audio;
 }
+// Everything plays through one bus: the dry sound, plus a little hall reverb so the drums ring
+// round the arena. The reverb is a convolution with a made-up impulse: two channels of noise
+// that fade away over a couple of seconds, a touch darker as they go.
+let bus = null;
+function out(a) {
+  if (bus) return bus;
+  bus = a.createGain();
+  bus.connect(a.destination);
+  const secs = 2.4, n = a.sampleRate * secs;
+  const ir = a.createBuffer(2, n, a.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    let lp = 0;
+    for (let i = 0; i < n; i++) {
+      const k = i / n;
+      lp += (Math.random() * 2 - 1 - lp) * (0.6 - 0.45 * k);   // smoothed noise: high end dies first
+      d[i] = lp * Math.pow(1 - k, 3.2) * (i < a.sampleRate * 0.012 ? i / (a.sampleRate * 0.012) : 1);
+    }
+  }
+  const verb = a.createConvolver();
+  verb.buffer = ir;
+  const pre = a.createDelay(0.1);
+  pre.delayTime.value = 0.025;                 // a short gap before the hall answers
+  const wet = a.createGain();
+  wet.gain.value = 0.32;
+  bus.connect(pre).connect(verb).connect(wet).connect(a.destination);
+  return bus;
+}
 function noiseBuffer(a, secs) {
   const b = a.createBuffer(1, a.sampleRate * secs, a.sampleRate);
   const d = b.getChannelData(0);
@@ -83,7 +111,7 @@ function noise(secs, { type = 'lowpass', freq = 800, q = 1, vol = 0.4, attack = 
   gain.gain.setValueAtTime(0.0001, t);
   gain.gain.exponentialRampToValueAtTime(vol, t + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + secs);
-  src.connect(f).connect(gain).connect(a.destination);
+  src.connect(f).connect(gain).connect(out(a));
   src.start(t);
 }
 function tone(freq, secs, { type = 'sine', vol = 0.4, to = null, delay = 0 } = {}) {
@@ -97,7 +125,7 @@ function tone(freq, secs, { type = 'sine', vol = 0.4, to = null, delay = 0 } = {
   const gain = a.createGain();
   gain.gain.setValueAtTime(vol, t);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + secs);
-  o.connect(gain).connect(a.destination);
+  o.connect(gain).connect(out(a));
   o.start(t);
   o.stop(t + secs);
 }

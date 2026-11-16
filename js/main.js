@@ -506,7 +506,7 @@ function startBout() {
   };
   game.cues = [
     { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`<span class="jp">${['一', '二', '三', '四', '五'][Math.min(game.bout, 5) - 1]}番</span>ROUND ${game.bout}<small>${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
-    { at: 1.0, fn: () => { actives().forEach(throwSalt); gyoji('The ring is purified with salt.', 1.2); } },
+    { at: 1.0, fn: () => { actives().forEach(throwSalt); gyoji('The ring is purified with salt.', 4); } },
     { at: 2.0, fn: () => { callout('<span class="jp">はっけよい</span>HAKKEYOI!', 1.0); sfx.taiko(); say('hakkeyoi', { interrupt: true }); } },
     { at: 3.1, fn: () => { excite(5); callout('<span class="jp">残った</span>NOKOTTA!', 0.9); say('nokotta', { interrupt: true }); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
   ];

@@ -11,6 +11,8 @@ python3 -m http.server 3970
 
 Then open http://localhost:3970.
 
+In a match, the buttons under the round name are Home (back to choosing chickens; online, for everyone in the ring), Music on/off and Sound effects on/off (incl. the announcer and the crowd). Your music and sound choices are remembered on your device. Online play uses a Metered TURN relay (set in `js/net/config.js`) for players who can't connect directly.
+
 ## Controls
 
 | Input | Move |

@@ -18,6 +18,20 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
   align-items: start; gap: 16px; padding: 0 clamp(12px, 3vw, 36px);
 }
 .bout { text-align: center; white-space: nowrap; }
+.hud-buttons { display: flex; justify-content: center; gap: 8px; margin-top: 8px; pointer-events: auto; }
+.hud-btn {
+  width: 34px; height: 34px; padding: 7px; border-radius: 50%; cursor: pointer; color: var(--gold);
+  background: var(--panel); border: 1px solid var(--line); transition: border-color 0.15s, color 0.15s;
+}
+.hud-btn:hover { border-color: var(--gold); color: var(--ink); }
+.hud-btn svg { width: 100%; height: 100%; display: block; }
+.hud-btn .off-slash { display: none; }
+.hud-btn.off { color: var(--muted); }
+.hud-btn.off .off-slash { display: inline; }
+.hud-btn.off .on-waves { display: none; }
+/* Shown at 90% like the other mates games (the 3D view stays full size underneath). A transform,
+   not zoom, so clicks land exactly where the buttons are drawn. */
+#hud, .screen { inset: auto; top: 0; left: 0; width: calc(100vw / 0.9); height: calc(100vh / 0.9); transform: scale(0.9); transform-origin: 0 0; }
 .bout .mark { font-family: var(--serif); font-weight: 800; letter-spacing: 0.32em; font-size: clamp(13px, 1.3vw, 17px); color: var(--gold); }
 .bout .name { font-family: var(--serif); font-size: clamp(15px, 1.7vw, 22px); margin-top: 2px; text-shadow: 0 2px 10px #000; }
 .meters { display: flex; flex-direction: column; gap: 8px; min-width: 0; }

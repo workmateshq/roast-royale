@@ -18,14 +18,25 @@ for (const [name, t] of Object.entries(TRACKS)) {
 
 let unlocked = false;
 let want = 'menu';
+const GESTURES = ['pointerdown', 'keydown', 'touchstart', 'click'];
 function unlock() {
   if (unlocked) return;
   unlocked = true;
-  removeEventListener('pointerdown', unlock, true);
-  removeEventListener('keydown', unlock, true);
+  GESTURES.forEach((ev) => removeEventListener(ev, unlock, true));
 }
-addEventListener('pointerdown', unlock, true);
-addEventListener('keydown', unlock, true);
+GESTURES.forEach((ev) => addEventListener(ev, unlock, true));
+// Arriving by a ring link (e.g. /mate) there's no click before the menus, so try anyway every few
+// seconds: browsers let a site you've played before start its music straight away.
+let tryIn = 0;
+function tryAutoplay(dt) {
+  if ((tryIn -= dt) > 0) return;
+  tryIn = 2;
+  const p = players.menu;
+  p.el.volume = 0;
+  p.el.play().then(unlock).catch(() => {});
+}
+let musicMuted = false;
+export function setMusicMuted(m) { musicMuted = m; }
 
 const MENU_PHASES = ['title', 'online', 'select'];
 
@@ -34,9 +45,9 @@ export function updateMusic(phase, dt) {
   updateCrowd(phase, dt);
   // Menu music on the menus; the drums only while a round is being fought (not the build-up or the verdict).
   want = MENU_PHASES.includes(phase) ? 'menu' : phase === 'fight' ? 'fight' : null;
-  if (!unlocked) return;
+  if (!unlocked) { if (want === 'menu' && !musicMuted) tryAutoplay(dt); return; }
   for (const [name, p] of Object.entries(players)) {
-    const target = name === want ? 1 : 0;
+    const target = name === want && !musicMuted ? 1 : 0;
     const fade = name === 'fight' && target === 0 ? 0.5 : FADE;   // the drums stop quickly when the round ends
     p.level += Math.sign(target - p.level) * Math.min(Math.abs(target - p.level), dt / fade);
     p.el.volume = p.level * p.max;
@@ -60,8 +71,10 @@ function crowdClip(name, vol) {
   return { el, vol, level: 0 };
 }
 let lastCheer = -1, cheerAt = -1e9;
+let crowdMuted = false;
+export function setCrowdMuted(m) { crowdMuted = m; if (m) [...CHEERS, APPLAUSE].forEach((c) => c.el.pause()); }
 function start(c) {
-  if (!unlocked) return;
+  if (!unlocked || crowdMuted) return;
   c.level = 1;
   c.el.volume = c.vol;
   c.el.currentTime = 0;
@@ -89,4 +102,9 @@ export function updateCrowd(phase, dt) {
     c.el.volume = c.level * c.vol;
     if (c.level === 0) c.el.pause();
   }
+}
+
+// For checking in the console: roast.musicState()
+export function musicState() {
+  return { unlocked, want, tracks: Object.fromEntries(Object.entries(players).map(([k, p]) => [k, { playing: !p.el.paused, volume: +p.el.volume.toFixed(2), ready: p.el.readyState, error: p.el.error && p.el.error.code }])) };
 }

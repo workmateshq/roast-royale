@@ -2,15 +2,15 @@
 import * as THREE from 'three';
 import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES, V2, rand, wrap, clamp, smoothstep } from './config.js';
 import { renderer, scene, camera, canvas, updateBanners, BANNER_R } from './scene.js';
-import { emit, updateParticles, sfx, shake, view, updateFlashes, excite } from './effects.js';
+import { emit, updateParticles, sfx, shake, view, updateFlashes, excite, setSfxMuted } from './effects.js';
 import { loadModel, poseChicken, debugRig, setSkin, renderPortraits } from './chicken.js';
 import { ROSTER, SLOTS } from './roster.js';
 import { buildRoster, setPortraits, renderSelect } from './select.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
-import { updateMusic, cheer, applause } from './music.js';
-import { say, voiceKey, preloadVoices } from './voice.js';
+import { updateMusic, cheer, applause, musicState, setMusicMuted, setCrowdMuted } from './music.js';
+import { say, voiceKey, preloadVoices, setVoiceMuted } from './voice.js';
 import { keys, pressed, pollPad, playerIntent, inputState, camDrag } from './input.js';
 
 // =====================================================================================
@@ -744,6 +744,8 @@ online.net = createOnline({
     if (m.ph === 'fight' && game.phase === 'ready') { game.phase = 'fight'; game.cues.forEach((c) => { if (!c.done) { c.done = true; c.fn(); } }); }
   },
   flow: (f) => {
+    // Everyone (host included) follows a Home press back to choosing chickens; the rest is the host's to send.
+    if (f.kind === 'select' && f.by) { if (game.phase !== 'select') goSelect(); return; }
     if (!isGuest()) return;
     if (f.kind === 'bout') {
       if (Array.isArray(f.active)) setActive(f.active);
@@ -757,7 +759,7 @@ online.net = createOnline({
       Object.assign(game, { wins: f.wins, results: f.results });
       showChampion();
     } else if (f.kind === 'select') {
-      goSelect();
+      if (game.phase !== 'select') goSelect();
     }
   },
   status: (text) => { if (game.phase === 'online') $('online-status').textContent = text; },
@@ -820,6 +822,37 @@ $('join-btn').addEventListener('click', () => {
 });
 $('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); $('join-btn').click(); } });
 $('online-back').addEventListener('click', () => goTitle());
+
+// ---------- In the HUD: home, music and sound effects ----------
+// Home ends the match and goes back to choosing chickens (online: for everyone, still in the ring).
+$('game-home').addEventListener('click', (e) => {
+  if (e.detail) e.currentTarget.blur();
+  if (match.mode === 'online' && online.net) online.net.send({ type: 'home' });
+  else goSelect();
+});
+// Music, and sound effects (incl. the announcer and the crowd): each player's choice, remembered on their device.
+const soundPrefs = (() => {
+  const read = (k) => { try { return localStorage.getItem(`roast-royale-${k}`) !== 'off'; } catch { return true; } };
+  return { music: read('music'), sfx: read('sfx') };
+})();
+function applySoundPrefs() {
+  setMusicMuted(!soundPrefs.music);
+  setSfxMuted(!soundPrefs.sfx); setVoiceMuted(!soundPrefs.sfx); setCrowdMuted(!soundPrefs.sfx);
+  [['music-toggle', soundPrefs.music, 'Music'], ['sfx-toggle', soundPrefs.sfx, 'Sound effects']].forEach(([id, on, name]) => {
+    $(id).setAttribute('aria-pressed', String(on));
+    $(id).classList.toggle('off', !on);
+    $(id).title = `${name} ${on ? 'on' : 'off'} (click to turn ${on ? 'off' : 'on'})`;
+  });
+}
+[['music-toggle', 'music'], ['sfx-toggle', 'sfx']].forEach(([id, key]) => {
+  $(id).addEventListener('click', (e) => {
+    soundPrefs[key] = !soundPrefs[key];
+    try { localStorage.setItem(`roast-royale-${key}`, soundPrefs[key] ? 'on' : 'off'); } catch { /* private mode */ }
+    applySoundPrefs();
+    if (e.detail) e.currentTarget.blur();   // so Space doesn't toggle it again mid-fight
+  });
+});
+applySoundPrefs();
 // The permanent link room: everyone who opens /roast-royale/mate lands in the same ring.
 $('mate-room').addEventListener('click', () => { busy('Entering the ring...'); online.net.enter('mate', joined); });
 $('copy-link').addEventListener('click', async () => {
@@ -971,4 +1004,4 @@ function tick(now, draw) {
 requestAnimationFrame(frame);
 
 // For testing in the console: window.roast.game, .wrestlers, .player (blue), .cpu (red)
-window.roast = { game, wrestlers, player, cpu, brain, match, online, startBout, beginTournament, debugRig };
+window.roast = { musicState, game, wrestlers, player, cpu, brain, match, online, startBout, beginTournament, debugRig };

@@ -65,10 +65,12 @@ export function ac() {
 // Everything plays through one bus: the dry sound, plus a little hall reverb so the drums ring
 // round the arena. The reverb is a convolution with a made-up impulse: two channels of noise
 // that fade away over a couple of seconds, a touch darker as they go.
-let bus = null;
+let bus = null, sfxMuted = false;
+export function setSfxMuted(m) { sfxMuted = m; if (bus) bus.gain.value = m ? 0 : 1; }
 function out(a) {
   if (bus) return bus;
   bus = a.createGain();
+  bus.gain.value = sfxMuted ? 0 : 1;
   bus.connect(a.destination);
   bus.connect(hallReverb(a, 0.32));
   return bus;

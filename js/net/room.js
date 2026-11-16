@@ -73,6 +73,13 @@
           this.send(this.hostId, 'pad', { ...msg, from: id });
           return true;
         case 'snap':  // the host's fight state, to the guests
+        case 'home':  // anyone: back to choosing chickens, still in the ring
+          if (!this.started) return true;
+          this.started = false;
+          this.players.forEach((q) => { q.locked = false; });
+          this.broadcastLobby();
+          this.players.forEach((q) => this.send(q.id, 'flow', { type: 'flow', kind: 'select', by: id }));
+          return true;
         case 'flow':  // the host's match flow (new round, decision, champion, back to selection)
           if (id !== this.hostId) return false;
           if (msg.type === 'flow' && msg.kind === 'select') {

@@ -12,7 +12,8 @@ const LOUDNESS = 0.7;    // a little above the music (0.22-0.4) without shouting
 const GAP = 0.12;        // seconds between queued words
 
 const buffers = {};
-let chain = null, playing = null, queue = [];
+let chain = null, playing = null, queue = [], muted = false, level = null;
+export function setVoiceMuted(m) { muted = m; if (level) level.gain.value = m ? 0 : LOUDNESS; }
 
 // 'RŌSUTO' -> 'rosuto'
 export const voiceKey = (name) => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -38,7 +39,8 @@ function output(a) {
   comp.attack.value = 0.003;
   comp.release.value = 0.25;
   const gain = a.createGain();
-  gain.gain.value = LOUDNESS;
+  gain.gain.value = muted ? 0 : LOUDNESS;
+  level = gain;
   comp.connect(gain);
   gain.connect(a.destination);
   gain.connect(hallReverb(a, 0.2));

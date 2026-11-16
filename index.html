@@ -23,14 +23,14 @@
   <div id="hud" hidden>
     <div class="hud-top">
       <div class="meter left" id="meter-p">
-        <div class="who"><span class="belt" style="--belt:#2f4fbf" title="Your mawashi: blue"></span><span>YOU</span><span class="rank">HEN SOLO · OZEKI</span><span class="stars" id="stars-p"></span></div>
+        <div class="who"><span class="belt" style="--belt:#2f4fbf" title="Blue mawashi"></span><span id="name-p">CHICKOZUNA</span><span class="rank" id="rank-p">YOU · YOKOZUNA</span><span class="stars" id="stars-p"></span></div>
         <div class="bar-label"><span>BALANCE</span><span id="pct-p">0%</span></div>
         <div class="bar"><div class="fill" id="fill-p"></div><div class="ticks"></div></div>
         <div class="bar small"><div class="fill" id="brace-p"></div></div>
       </div>
       <div class="bout"><div class="mark">ROAST ROYALE</div><div class="name" id="bout-name">Round 1: Initial Bash</div></div>
       <div class="meter right" id="meter-a">
-        <div class="who"><span class="belt" style="--belt:#b8283f" title="Chickozuna's mawashi: red"></span><span>CHICKOZUNA</span><span class="rank">YOKOZUNA</span><span class="stars" id="stars-a"></span></div>
+        <div class="who"><span class="belt" style="--belt:#b8283f" title="Red mawashi"></span><span id="name-a">SCORCHMASTER</span><span class="rank" id="rank-a">CPU · OZEKI</span><span class="stars" id="stars-a"></span></div>
         <div class="bar-label"><span>BALANCE</span><span id="pct-a">0%</span></div>
         <div class="bar"><div class="fill" id="fill-a"></div><div class="ticks"></div></div>
         <div class="bar small"><div class="fill" id="brace-a"></div></div>
@@ -57,9 +57,37 @@
       <div><b>Shift</b><span>Wing Dodge. Let them sail past.</span></div>
     </div>
     <p class="tagline" style="font-size:15px;color:var(--muted)">Push your rival out of the ring, or drain their balance until they topple. Best of three rounds.</p>
-    <div class="cta" id="start-cta">PRESS ENTER OR CLICK TO MOUNT THE DOHYŌ</div>
+    <div class="modes ui">
+      <button type="button" class="mode-btn" id="mode-cpu"><b>VERSUS CPU</b><span>Take on the house champion</span></button>
+      <button type="button" class="mode-btn" id="mode-online"><b>VERSUS A MATE</b><span>Online, with a ring code or link</span></button>
+    </div>
+    <div class="cta small" id="start-cta">↑ ↓ TO CHOOSE · ENTER TO MOUNT THE DOHYŌ</div>
     <div id="load-note"></div>
     <div class="fine">"Roast chicken" (<a href="https://skfb.ly/6XHDu" target="_blank" rel="noopener">skfb.ly/6XHDu</a>) by daidaiaoko, licensed under <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Gamepad supported.</div>
+  </div>
+
+  <div id="online" class="screen ui" hidden>
+    <div class="kanji">対 戦</div>
+    <h2 class="title mid">VERSUS A MATE</h2>
+    <div class="rule"></div>
+    <div class="online-card">
+      <button type="button" class="mode-btn" id="create-btn"><b>CREATE A RING</b><span>Get a code to send your mate</span></button>
+      <div class="or">or join your mate's ring</div>
+      <div class="join-row"><input id="code-input" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" aria-label="Ring code"><button type="button" class="mode-btn small" id="join-btn"><b>JOIN</b></button></div>
+      <p class="status" id="online-status"></p>
+      <button type="button" class="link-btn" id="online-back">← Back</button>
+    </div>
+  </div>
+
+  <div id="select" class="screen select ui" hidden>
+    <h2 class="select-title">CHOOSE YOUR CHICKEN</h2>
+    <div class="fighter left" id="fighter-p"><div class="ftag" id="ftag-p"></div><div class="fname" id="fname-p"></div><div class="fcook" id="fcook-p"></div><p class="fblurb" id="fblurb-p"></p><div class="fstats" id="fstats-p"></div><div class="flock" id="flock-p"></div></div>
+    <div class="fighter right" id="fighter-a"><div class="ftag" id="ftag-a"></div><div class="fname" id="fname-a"></div><div class="fcook" id="fcook-a"></div><p class="fblurb" id="fblurb-a"></p><div class="fstats" id="fstats-a"></div><div class="flock" id="flock-a"></div></div>
+    <div class="select-bottom">
+      <div class="room-bar" id="room-bar" hidden><span>RING CODE</span><code id="room-code">----</code><button type="button" class="mode-btn small" id="copy-link"><b>COPY INVITE LINK</b></button><span class="room-status" id="room-status"></span></div>
+      <div class="roster" id="roster"></div>
+      <div class="select-foot">← → CHOOSE · ENTER LOCK IN · ESC BACK</div>
+    </div>
   </div>
 
   <div id="decision" class="screen" hidden>
@@ -71,6 +99,10 @@
     <div class="cta" id="dec-cta">PRESS ENTER TO CONTINUE</div>
   </div>
 
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="js/net/config.js"></script>
+  <script src="js/net/room.js"></script>
+  <script src="js/net/net.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

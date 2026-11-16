@@ -16,20 +16,58 @@ const HIP_Y = 0.34;
 const LEG_TOP = 0.42;                 // skin below this (out over a foot) moves with the leg
 const WING_FROM = 0.5;                // wings are above this, out at the sides
 
-// ---------- The painted mawashi ----------
+// ---------- The skin: how it's cooked, and the painted mawashi ----------
 // Worked out per pixel from where that bit of skin sits on the standing chicken in its rest pose
 // (before the rig moves it), so the belt stays on the hips however the legs and wings move.
-function paintMawashi(material, belt, box) {
+// uSkin picks the cook: 0 golden roast, 1 extra crispy (charred black), 2 barely crispy (pale),
+// 3 frozen raw chook (pale pink, frosted), 4 battered (crunchy golden coating).
+const SKIN_GLSL = `
+  float rrHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+  float rrNoise(vec3 x) {
+    vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(rrHash(i), rrHash(i + vec3(1,0,0)), f.x), mix(rrHash(i + vec3(0,1,0)), rrHash(i + vec3(1,1,0)), f.x), f.y),
+               mix(mix(rrHash(i + vec3(0,0,1)), rrHash(i + vec3(1,0,1)), f.x), mix(rrHash(i + vec3(0,1,1)), rrHash(i + vec3(1,1,1)), f.x), f.y), f.z);
+  }
+  // Surface relief for the cook (batter crumbs, charred cracks, goosebumps), 0..1.
+  float rrRelief(vec3 p) {
+    if (uSkin > 3.5) return rrNoise(p * 55.0) * 0.6 + rrNoise(p * 130.0) * 0.4;
+    if (uSkin > 2.5) return rrNoise(p * 160.0);
+    if (uSkin > 0.5 && uSkin < 1.5) return abs(rrNoise(p * 24.0) - 0.5) * 2.0;
+    return 0.5;
+  }
+`;
+function paintSkin(material, belt, box) {
+  const u = {
+    uBelt: { value: new THREE.Color(belt) },
+    uSkin: { value: 0 },
+    uMin: { value: box.min.clone() },
+    uSize: { value: box.getSize(new THREE.Vector3()) },
+  };
+  material.userData.u = u;
   material.onBeforeCompile = (shader) => {
-    shader.uniforms.uBelt = { value: new THREE.Color(belt) };
-    shader.uniforms.uMin = { value: box.min.clone() };
-    shader.uniforms.uSize = { value: box.getSize(new THREE.Vector3()) };
+    Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vRest;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = transformed;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vRest;\nuniform vec3 uBelt; uniform vec3 uMin; uniform vec3 uSize;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRest;\nuniform vec3 uBelt; uniform vec3 uMin; uniform vec3 uSize; uniform float uSkin;\n' + SKIN_GLSL)
       .replace('#include <color_fragment>', `#include <color_fragment>
+        {
+          vec3 c = diffuseColor.rgb;
+          float L = dot(c, vec3(0.299, 0.587, 0.114));
+          float r = rrRelief(vRest);
+          if (uSkin > 0.5 && uSkin < 1.5) {          // extra crispy: charcoal black, a few burnt-brown edges
+            c = mix(vec3(0.035, 0.028, 0.024), vec3(0.16, 0.08, 0.035), smoothstep(0.35, 0.8, L)) * (0.7 + 0.6 * r);
+          } else if (uSkin > 1.5 && uSkin < 2.5) {   // barely crispy: pale, a faint golden blush
+            c = mix(vec3(0.8, 0.58, 0.3), vec3(0.97, 0.84, 0.58), smoothstep(0.15, 0.7, L)) * (0.88 + 0.12 * L);
+          } else if (uSkin > 2.5 && uSkin < 3.5) {   // frozen raw chook: pale pink skin, frosted over
+            c = mix(vec3(0.84, 0.48, 0.5), vec3(0.98, 0.72, 0.72), smoothstep(0.1, 0.65, L));
+            c = mix(c, vec3(0.9, 0.95, 1.0), smoothstep(0.7, 0.95, rrNoise(vRest * 38.0)) * 0.45);
+          } else if (uSkin > 3.5) {                  // battered: golden, crunchy, crumbs catching the light
+            c = mix(vec3(0.62, 0.32, 0.08), vec3(0.98, 0.7, 0.3), smoothstep(0.25, 0.75, r)) * (0.85 + 0.25 * L);
+          }
+          diffuseColor.rgb = c;
+        }
         vec3 q = (vRest - uMin) / uSize;                          // 0..1 within its standing box
         float x = q.x * 2.0 - 1.0;                                // -1 left .. 1 right
         float front = smoothstep(0.0, 0.15, q.z - 0.5);           // the breast side
@@ -40,9 +78,28 @@ function paintMawashi(material, belt, box) {
         vec3 silk = uBelt * (0.85 + 0.15 * sin(q.y * 140.0));  // a little woven sheen
         float seam = smoothstep(0.43, 0.44, q.y) * (1.0 - smoothstep(0.445, 0.455, q.y));
         silk = mix(silk, uBelt * 1.6 + 0.08, seam);
-        diffuseColor.rgb = mix(diffuseColor.rgb, silk, m);`);
+        diffuseColor.rgb = mix(diffuseColor.rgb, silk, m);
+        float rrBelt = m;`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        if (uSkin > 0.5 && uSkin < 1.5) roughnessFactor = mix(roughnessFactor, 0.92, 0.8);
+        else if (uSkin > 1.5 && uSkin < 2.5) roughnessFactor = mix(roughnessFactor, 0.4, 0.5);
+        else if (uSkin > 2.5 && uSkin < 3.5) roughnessFactor = mix(0.32, 0.6, rrNoise(vRest * 38.0));
+        else if (uSkin > 3.5) roughnessFactor = mix(roughnessFactor, 0.78, 0.8);
+        roughnessFactor = mix(roughnessFactor, 0.55, rrBelt);`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        if (uSkin > 0.5 && rrBelt < 0.5) {
+          // Bump the surface with the cook's relief (batter crumbs stand out the most).
+          float amt = uSkin > 3.5 ? 0.012 : uSkin > 2.5 ? 0.0012 : uSkin < 1.5 ? 0.006 : 0.0;
+          float h = rrRelief(vRest) * amt;
+          vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition);
+          float hx = dFdx(h), hy = dFdy(h);
+          vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx);
+          float det = dot(dpx, r1);
+          vec3 grad = sign(det) * (hx * r1 + hy * r2);
+          normal = normalize(abs(det) * normal - grad);
+        }`);
   };
-  material.customProgramCacheKey = () => 'mawashi';
+  material.customProgramCacheKey = () => 'roast-skin';
 }
 
 // ---------- The procedural roast (shown until the GLB loads, or if it can't) ----------
@@ -195,7 +252,7 @@ function rigChicken(object, belt, tilt = 0, yaw = 0) {
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
     geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wt, 4));
     const mat = p.mat.clone();
-    paintMawashi(mat, belt, rest);
+    paintSkin(mat, belt, rest);
     mats.push(mat);
     const mesh = new THREE.SkinnedMesh(geo, mat);
     mesh.castShadow = mesh.receiveShadow = true;
@@ -229,19 +286,60 @@ function setModel(v, rig) {
   if (v.model) v.body.remove(v.model);
   v.model = rig;
   v.body.add(rig);
+  setSkin(v, v.skin || 0);
+}
+// Which cook this chicken is (see ROSTER in roster.js).
+export function setSkin(v, skin) {
+  v.skin = skin;
+  for (const m of v.model.userData.rig.mats) m.userData.u.uSkin.value = skin;
 }
 
 // Load the GLB; both chickens switch to it when it arrives.
-export function loadModel(onProgress) {
+let template = null;   // the loaded GLB, for portraits
+export function loadModel(onProgress, onLoaded = () => {}) {
   new GLTFLoader().load('assets/roast_chicken.glb', (gltf) => {
+    template = gltf.scene;
     visuals.forEach((v) => setModel(v, rigChicken(gltf.scene.clone(true), v.belt, MODEL_TILT, MODEL_YAW)));
     onProgress('');
+    onLoaded();
   }, (e) => {
     if (e.total) onProgress(`Preheating the oven... ${Math.round((e.loaded / e.total) * 100)}%`);
   }, (err) => {
     console.warn('Roast chicken model unavailable, using the procedural roast.', err);
     onProgress('');
+    onLoaded();
   });
+}
+
+// Character-select portraits: each cook rendered once, front three-quarter, as an image URL.
+export function renderPortraits(skins, size = 256) {
+  const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  r.setSize(size, size * 1.25);
+  r.toneMapping = THREE.ACESFilmicToneMapping;
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xfff0dc, 0x3a2414, 1.1));
+  const key = new THREE.DirectionalLight(0xffd8a8, 2.6);
+  key.position.set(1.5, 3, 3);
+  const rim = new THREE.DirectionalLight(0x9db8ff, 1.2);
+  rim.position.set(-2, 2, -2);
+  sc.add(key, rim);
+  const cam = new THREE.PerspectiveCamera(30, 0.8, 0.1, 20);
+  cam.position.set(1.1, 1.05, 2.7);
+  cam.lookAt(0, 0.62, 0);
+  const urls = skins.map((skin) => {
+    const rig = template ? rigChicken(template.clone(true), 0x2a2a34, MODEL_TILT, MODEL_YAW) : rigChicken(proceduralChicken(), 0x2a2a34);
+    for (const m of rig.userData.rig.mats) m.userData.u.uSkin.value = skin;
+    rig.rotation.x = 0.1;
+    sc.add(rig);
+    r.render(sc, cam);
+    const url = r.domElement.toDataURL('image/png');
+    sc.remove(rig);
+    rig.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); m.material.dispose(); } });
+    return url;
+  });
+  r.dispose();
+  return urls;
 }
 
 // ---------- Posing: walking, balancing and wing-arms ----------

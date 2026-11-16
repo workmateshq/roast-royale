@@ -30,6 +30,8 @@ export const camDrag = { yaw: 0, pitch: 0, active: false };
 let down = null;
 addEventListener('mousedown', (e) => {
   ac();
+  // Clicks on menus and buttons are theirs, not the game's.
+  if (e.button === 0 && e.target.closest && e.target.closest('.ui, button, input, a')) return;
   if (e.button === 0) { down = { x: e.clientX, y: e.clientY, dragging: false }; pressed.start = true; }
   if (e.button === 2) braceHeld = true;
 });

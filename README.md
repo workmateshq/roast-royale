@@ -24,6 +24,19 @@ Then open http://localhost:3970.
 
 Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 
+## Modes and roster
+
+- **Versus CPU**: pick your chicken, the house picks a rival, best of three.
+- **Versus a mate**: create a ring to get a 4-letter code (or invite link) and send it to your mate, or join theirs. Link rooms work too: `/roast-royale/<name>` (or `?room=<name>`) puts everyone with that link in the same ring. The ring's creator hosts and runs the fight; the other player sends their controls and sees the host's fight.
+
+| Chicken | Cook | Style |
+| --- | --- | --- |
+| Chickozuna | Golden roast | The all-rounder |
+| Scorchmaster | Extra crispy (charcoal black) | Light and quick, but brittle |
+| Lightly Toasted | Barely crispy | Soft and forgiving |
+| Freezer Burn | Frozen raw chook | Heavy and stiff, slow to turn |
+| Katsudon | Battered | Heavy shove, crunchy armour |
+
 Win a round by pushing your rival out of the ring (Yorikiri), or draining their balance to 100% so they topple (Koppori). Stepping out on your own is Isamiashi. Best of three rounds.
 
 ## Files
@@ -37,7 +50,10 @@ Win a round by pushing your rival out of the ring (Yorikiri), or draining their 
 - `js/ai.js`: the CPU opponent's state machine.
 - `js/input.js`: keyboard, mouse and gamepad.
 - `js/effects.js`: particles, synthesised sounds and camera shake.
-- `js/main.js`: camera, animation, HUD, tournament flow and the main loop.
+- `js/roster.js`: the chickens to choose from and their stats.
+- `js/select.js`: the choose-your-chicken screen.
+- `js/online.js`, `js/net/`: online play (PeerJS); `404.html` turns `/roast-royale/<name>` links into rooms.
+- `js/main.js`: camera, animation, HUD, select and tournament flow, online sync and the main loop.
 
 In the browser console, `roast.debugRig(true)` tints each part of the chicken by the bone that moves it.
 
@@ -47,4 +63,4 @@ To check a pose close up, open `?pose=push` (or `brace`, `windup`, `charge`, `do
 
 "Roast chicken" (https://skfb.ly/6XHDu) by daidaiaoko is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/). The game stands it upright, rigs it and paints a mawashi onto it.
 
-Three.js is loaded from the jsDelivr CDN.
+Three.js is loaded from the jsDelivr CDN, PeerJS from unpkg.

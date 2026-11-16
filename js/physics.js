@@ -14,6 +14,7 @@ export const contact = { t: 0 };
 
 export class Wrestler {
   constructor(name, belt) {
+    this.kind = { stats: { mass: 1, speed: 1, turn: 1, take: 1, power: 1 } };   // set from the roster (roster.js)
     this.name = name;
     this.vis = makeVisual(belt);
     this.reset(0, 0);
@@ -42,7 +43,7 @@ export class Wrestler {
   get facing() { return faceVec(this.heading); }
   get done() { return this.state === 'down' || this.state === 'out'; }
   // Heavier while braced: knockback is divided by this.
-  get mass() { return this.state === 'brace' ? 3.2 : this.state === 'windup' ? 1.3 : 1; }
+  get mass() { return (this.state === 'brace' ? 3.2 : this.state === 'windup' ? 1.3 : 1) * this.kind.stats.mass; }
   set(state) { this.state = state; this.t = 0; this.struck = false; }
 }
 
@@ -53,7 +54,7 @@ function hit(target, attacker, kind, impulse, balanceDamage, stagger = 0) {
   const toAttacker = attacker.pos.clone().sub(target.pos).normalize();
   const braced = target.state === 'brace' && target.facing.dot(toAttacker) > 0.2;
   let k = 1 / target.mass;
-  let dmg = balanceDamage;
+  let dmg = balanceDamage * target.kind.stats.take;
   if (braced) dmg *= 0.35;
   if (target.state === 'recover') { k *= 1.25; dmg *= 1.5; }
   if (target.state === 'windup') dmg *= 1.25;
@@ -70,7 +71,7 @@ function startCharge(w) {
   w.set('charge');
   const f = w.facing;
   const along = Math.max(0, w.vel.dot(f));
-  w.vel.copy(f).multiplyScalar(along + 5.2 + 3.8 * k);
+  w.vel.copy(f).multiplyScalar(along + (5.2 + 3.8 * k) * Math.sqrt(w.kind.stats.speed));
   w.cd.charge = 1.4;
   sfx.whoosh();
   emit(new THREE.Vector3(w.pos.x, PLATFORM_H + 0.05, w.pos.y), 14, { colour: 0xd2b07a, speed: 1.6, up: 0.6, life: 0.7, grav: 2, size: 0.18, grow: 0.5, alpha: 0.5, dir: new THREE.Vector3(-f.x, 0, -f.y) });
@@ -84,7 +85,7 @@ function resolvePush(w, opp) {
   if (!opp.done && opp.ghost <= 0 && dist < BODY_R * 2 + 0.6 && f.dot(to) > 0.45) {
     // Mostly where you're facing, a little straight at them.
     const dir = f.clone().multiplyScalar(0.7).addScaledVector(to, 0.3).normalize();
-    const braced = hit(opp, w, 'push', dir.multiplyScalar(3.5 + Math.max(0, w.vel.dot(f)) * 0.6), 9, 0.16);
+    const braced = hit(opp, w, 'push', dir.multiplyScalar((3.5 + Math.max(0, w.vel.dot(f)) * 0.6) * w.kind.stats.power), 9 * w.kind.stats.power, 0.16);
     w.vel.addScaledVector(f, braced ? -1.2 : -0.5);
     if (braced) w.balance += 4;
     sfx.slap();
@@ -164,7 +165,7 @@ export function stepWrestler(w, it, opp, dt) {
       const to = opp.pos.clone().sub(w.pos);
       if (to.lengthSq() > 0.01) target = Math.atan2(to.x, to.y);
     }
-    const maxTurn = MOVE.turnRate * turnScale;
+    const maxTurn = MOVE.turnRate * turnScale * w.kind.stats.turn;
     const want = target === null ? 0 : clamp(wrap(target - w.heading) * 5, -maxTurn, maxTurn);
     w.turnVel += clamp(want - w.turnVel, -MOVE.turnAccel * dt, MOVE.turnAccel * dt);
     w.heading = wrap(w.heading + w.turnVel * dt);
@@ -175,7 +176,7 @@ export function stepWrestler(w, it, opp, dt) {
       // You push best in the direction you're facing: walking backwards or sideways is slow.
       const m = it.move.clone();
       const align = m.lengthSq() > 0 ? w.facing.dot(m.clone().normalize()) : 0;
-      w.vel.addScaledVector(m, MOVE.accel * (0.35 + 0.65 * Math.max(0, align)) * dt);
+      w.vel.addScaledVector(m, MOVE.accel * w.kind.stats.speed * (0.35 + 0.65 * Math.max(0, align)) * dt);
     }
     const drag = { idle: MOVE.accel / MOVE.walkSpeed, windup: 4, charge: 0.6, recover: 3.2, push: 2.5, brace: 11, dodge: 2.2, stagger: 1.6 }[w.state];
     w.vel.multiplyScalar(Math.max(0, 1 - drag * dt));
@@ -254,7 +255,7 @@ export function collide(a, b) {
     const [c, t, nn] = aC ? [a, b, n] : [b, a, n.clone().negate()];
     const s = c.vel.dot(nn);
     c.struck = true;
-    const braced = hit(t, c, 'charge', nn.clone().multiplyScalar(s * 0.95), 10 + s * 4.2, 0.45);
+    const braced = hit(t, c, 'charge', nn.clone().multiplyScalar(s * 0.95 * c.kind.stats.power), (10 + s * 4.2) * c.kind.stats.power, 0.45);
     if (braced) {
       // Like charging a wall: you bounce off and wobble.
       c.vel.copy(nn).multiplyScalar(-s * 0.32);

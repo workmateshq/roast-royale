@@ -474,6 +474,7 @@ function drawSelect() {
   renderSelect(list);
   announce(list);
   $('ready-btn').classList.toggle('on', sel.locked);
+  $('ready-btn').querySelector('b').textContent = sel.locked ? 'READY!' : 'READY...?';
 
   // The chickens in the ring wear the picks (and crouch once locked in).
   const was = wrestlers.map((w) => w.kind);

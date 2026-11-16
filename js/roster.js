@@ -20,6 +20,11 @@ export const ROSTER = [
     stats: { mass: 1.4, speed: 0.8, turn: 0.7, take: 0.9, power: 1.1 },
   },
   {
+    id: 'bagged', name: 'RAPPU', jp: 'ラップ', rank: 'MAKUSHITA', cook: 'Oven Bagged', skin: 6,
+    blurb: 'Still sealed in the roasting bag. Slippery, cushioned, and tied off with a jaunty ponytail.',
+    stats: { mass: 0.98, speed: 0.96, turn: 1.08, take: 0.82, power: 0.94 },
+  },
+  {
     id: 'battered', name: 'KATSU', jp: 'カツ', rank: 'MAEGASHIRA', cook: 'Battered', skin: 4,
     blurb: 'Triple-dipped in golden batter. Crunchy armour and a heavy shove.',
     stats: { mass: 1.18, speed: 0.92, turn: 0.9, take: 0.95, power: 1.18 },
@@ -33,11 +38,6 @@ export const ROSTER = [
     id: 'rotten', name: 'FUNIKU', jp: '腐肉', rank: 'JŪRYŌ', cook: 'Gone Off', skin: 5,
     blurb: 'Found at the back of the fridge. Nobody wants to grapple with it, which is half the battle.',
     stats: { mass: 1.05, speed: 0.88, turn: 0.95, take: 1.15, power: 1.12 },
-  },
-  {
-    id: 'bagged', name: 'RAPPU', jp: 'ラップ', rank: 'MAKUSHITA', cook: 'Oven Bagged', skin: 6,
-    blurb: 'Still sealed in the roasting bag. Slippery, cushioned, and tied off with a jaunty ponytail.',
-    stats: { mass: 0.98, speed: 0.96, turn: 1.08, take: 0.82, power: 0.94 },
   },
 ];
 

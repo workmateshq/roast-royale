@@ -58,8 +58,10 @@ function paintSkin(material, belt, box) {
           float r = rrRelief(vRest);
           if (uSkin > 0.5 && uSkin < 1.5) {          // extra crispy: charcoal black, a few burnt-brown edges
             c = mix(vec3(0.035, 0.028, 0.024), vec3(0.16, 0.08, 0.035), smoothstep(0.35, 0.8, L)) * (0.7 + 0.6 * r);
-          } else if (uSkin > 1.5 && uSkin < 2.5) {   // barely crispy: pale, a faint golden blush
-            c = mix(vec3(0.8, 0.58, 0.3), vec3(0.97, 0.84, 0.58), smoothstep(0.15, 0.7, L)) * (0.88 + 0.12 * L);
+          } else if (uSkin > 1.5 && uSkin < 2.5) {   // skillet-seared: golden, with browned patches where it met the pan
+            c = mix(vec3(0.6, 0.37, 0.15), vec3(0.86, 0.6, 0.3), smoothstep(0.15, 0.7, L));
+            float sear = smoothstep(0.3, 0.85, rrNoise(vRest * 5.0) * 0.75 + rrNoise(vRest * 18.0) * 0.25);
+            c = mix(c, vec3(0.4, 0.2, 0.07), sear * 0.7) * (0.88 + 0.14 * L);
           } else if (uSkin > 2.5 && uSkin < 3.5) {   // frozen raw chook: pale pink skin, frosted over
             c = mix(vec3(0.84, 0.48, 0.5), vec3(0.98, 0.72, 0.72), smoothstep(0.1, 0.65, L));
             c = mix(c, vec3(0.9, 0.95, 1.0), smoothstep(0.7, 0.95, rrNoise(vRest * 38.0)) * 0.45);

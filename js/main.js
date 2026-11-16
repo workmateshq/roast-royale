@@ -10,6 +10,7 @@ import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
 import { updateMusic, cheer, applause } from './music.js';
+import { say, voiceKey, preloadVoices } from './voice.js';
 import { keys, pressed, pollPad, playerIntent, inputState, camDrag } from './input.js';
 
 // =====================================================================================
@@ -261,6 +262,7 @@ function goSelect() {
   for (const w of [player, cpu]) w.fallSign = 1;
   game.winner = null;
   game.results = [];
+  heard = null;   // nothing's announced for the chickens already standing there
   sendPick();
   drawSelect();
 }
@@ -295,6 +297,17 @@ function sendPick() {
   if (match.mode === 'online' && online.net) online.net.send({ type: 'pick', pick: sel.i, locked: sel.locked });
 }
 
+// The announcer calls your chicken whenever you pick or ready one, and your opponent's once they're locked in.
+let heard = null;
+function announce(mine, other) {
+  const now = { i: mine.i, locked: mine.locked, oi: other.waiting ? null : other.i, ol: !!other.locked };
+  if (heard) {
+    if (now.i !== heard.i || (now.locked && !heard.locked)) say(voiceKey(ROSTER[now.i].name), { interrupt: true });
+    if (now.ol && now.oi !== null && (!heard.ol || now.oi !== heard.oi)) say(voiceKey(ROSTER[now.oi].name));
+  }
+  heard = now;
+}
+
 function drawSelect() {
   const mine = { i: sel.i, locked: sel.locked, tag: 'YOU' };
   let other;
@@ -306,6 +319,7 @@ function drawSelect() {
   }
   const sides = match.side === 'p' ? { p: mine, a: other } : { p: other, a: mine };
   renderSelect(sides);
+  announce(mine, other);
   $('ready-btn').classList.toggle('on', sel.locked);
 
   // The two chickens in the ring wear the picks (and crouch once locked in).
@@ -391,8 +405,8 @@ function startBout() {
   game.cues = [
     { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`ROUND ${game.bout}<small>${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
     { at: 1.0, fn: () => { throwSalt(player); throwSalt(cpu); gyoji('The ring is purified with salt.', 1.2); } },
-    { at: 2.0, fn: () => { callout('HAKKEYOI!', 1.0); sfx.taiko(); } },
-    { at: 3.1, fn: () => { excite(5); callout('NOKOTTA!', 0.9); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
+    { at: 2.0, fn: () => { callout('HAKKEYOI!', 1.0); sfx.taiko(); say('hakkeyoi', { interrupt: true }); } },
+    { at: 3.1, fn: () => { excite(5); callout('NOKOTTA!', 0.9); say('nokotta', { interrupt: true }); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
   ];
   game.rematch = false;
 }
@@ -461,6 +475,7 @@ function showDecision() {
   $('dec-gloss').textContent = d.gloss;
   $('dec-kimarite').textContent = d.kimarite;
   $('dec-kanji').textContent = KANJI[d.kimarite] || '';
+  say(d.kimarite, { interrupt: true });
   $('dec-winner').textContent = d.winner ? `WINNER: ${label(d.winner === 'p' ? player : cpu)}` : 'NO DECISION';
   $('dec-flavour').textContent = '';
   $('dec-tally').textContent = tally();
@@ -476,6 +491,7 @@ function showChampion() {
   $('dec-gloss').textContent = 'THE TOURNAMENT IS DECIDED';
   $('dec-kimarite').textContent = 'YŪSHŌ';
   $('dec-kanji').textContent = KANJI['YŪSHŌ'];
+  say('YŪSHŌ', { interrupt: true });
   $('dec-winner').textContent = `CHAMPION: ${label(champ)}`;
   $('dec-flavour').textContent = youWon
     ? 'The Emperor\'s Cup is presented, with gravy. A new yokozuna of the rotisserie is crowned.'
@@ -647,12 +663,14 @@ function sendSnap(real) {
 // =====================================================================================
 function chooseCpu() {
   sfx.clack();
+  preloadVoices();
   match.mode = 'cpu';
   match.side = 'p';
   goSelect();
 }
 function chooseOnline() {
   sfx.clack();
+  preloadVoices();
   if (!online.net) { $('load-note').textContent = "Online play needs an internet connection (PeerJS couldn't load)."; return; }
   game.phase = 'online';
   showScreen('online');

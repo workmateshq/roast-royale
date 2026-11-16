@@ -50,6 +50,7 @@ Win a round by pushing your rival out of the ring (Yorikiri), or draining their 
 - `js/ai.js`: the CPU opponent's state machine.
 - `js/input.js`: keyboard, mouse and gamepad.
 - `js/effects.js`: particles, synthesised sounds (with hall reverb) and camera shake.
+- `js/voice.js`: the announcer: spoken calls (hakkeyoi, nokotta, the winning technique, yūshō) and the chickens' names, compressed with a little hall reverb, from `assets/words/`.
 - `js/music.js`: looping background music (menus, and taiko only while a round is fought), plus crowd cheers at big moments and applause for the champion.
 - `js/roster.js`: the chickens to choose from and their stats.
 - `js/select.js`: the choose-your-chicken screen.

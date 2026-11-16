@@ -70,6 +70,11 @@ function out(a) {
   if (bus) return bus;
   bus = a.createGain();
   bus.connect(a.destination);
+  bus.connect(hallReverb(a, 0.32));
+  return bus;
+}
+// A send into the hall: connect a sound to the returned node and it rings round the arena.
+export function hallReverb(a, level) {
   const secs = 2.4, n = a.sampleRate * secs;
   const ir = a.createBuffer(2, n, a.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
@@ -86,9 +91,9 @@ function out(a) {
   const pre = a.createDelay(0.1);
   pre.delayTime.value = 0.025;                 // a short gap before the hall answers
   const wet = a.createGain();
-  wet.gain.value = 0.32;
-  bus.connect(pre).connect(verb).connect(wet).connect(a.destination);
-  return bus;
+  wet.gain.value = level;
+  pre.connect(verb).connect(wet).connect(a.destination);
+  return pre;
 }
 function noiseBuffer(a, secs) {
   const b = a.createBuffer(1, a.sampleRate * secs, a.sampleRate);

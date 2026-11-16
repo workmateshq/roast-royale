@@ -27,7 +27,7 @@ Gamepad: A charge, X / RB push, LB / triggers brace, B dodge.
 ## Modes and roster
 
 - **Versus CPU**: pick your chicken, the house picks a rival, best of three.
-- **Versus a mate**: create a ring to get a 4-letter code (or invite link) and send it to your mate, or join theirs. Link rooms work too: `/roast-royale/<name>` (or `?room=<name>`) puts everyone with that link in the same ring. The ring's creator hosts and runs the fight; the other player sends their controls and sees the host's fight.
+- **Versus a mate**: 2 to 4 players in one ring, free-for-all. Create a ring to get a 4-letter code (or invite link) and send it to your mates, or join theirs. Link rooms work too: `/roast-royale/<name>` (or `?room=<name>`) puts everyone with that link in the same ring. Everyone wrestles at once in blue, red, green and gold mawashi: a chicken that's pushed out or topples is out of that round, and the last chicken standing wins it. First to two round wins is the champion. The tournament starts once at least two are in the ring and everyone has readied up. The ring's creator hosts and runs the fight; the others send their controls and see the host's fight.
 
 | Chicken | Cook | Style |
 | --- | --- | --- |

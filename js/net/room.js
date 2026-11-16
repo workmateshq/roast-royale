@@ -1,9 +1,10 @@
 // Roast Royale's online room (runs in the host's browser; js/net/net.js does the networking).
-// Two wrestlers. The room keeps who's here and which chicken each has picked; the fight itself runs
+// Two to four wrestlers, all in one ring. The room keeps who's here and which chicken each has picked; the fight itself runs
 // in the host's game (js/main.js), so during a bout the room just relays:
-//   guest controls -> host ('pad'), host's fight state -> guest ('snap'), host's match flow -> guest ('flow').
+//   guest controls -> host ('pad', tagged with who sent them), host's fight state -> guests ('snap'),
+//   host's match flow -> guests ('flow').
 (function (root) {
-  const MAX_PLAYERS = 2;
+  const MAX_PLAYERS = 4;
   const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O
 
   function generateRoomCode() {
@@ -17,7 +18,7 @@
       this.code = code;
       this.broadcast = hooks.broadcast;
       this.send = hooks.send;
-      this.players = new Map();   // id -> { id, slot (1 blue, 2 red), pick, locked }
+      this.players = new Map();   // id -> { id, slot (1 blue, 2 red, 3 green, 4 gold), pick, locked }
       this.order = [];
       this.hostId = null;
       this.started = false;
@@ -25,10 +26,12 @@
 
     join(id) {
       if (this.players.has(id)) return { ok: false, error: 'Already in this room.' };
-      if (this.players.size >= MAX_PLAYERS) return { ok: false, error: 'This ring already has two wrestlers.' };
+      if (this.players.size >= MAX_PLAYERS) return { ok: false, error: 'This ring is full (four wrestlers).' };
+      if (this.started) return { ok: false, error: 'A tournament is under way in this ring. Try again when it ends.' };
       const taken = new Set([...this.players.values()].map((p) => p.slot));
-      const slot = taken.has(1) ? 2 : 1;
-      this.players.set(id, { id, slot, pick: slot === 1 ? 0 : 1, locked: false });
+      let slot = 1;
+      while (taken.has(slot)) slot++;
+      this.players.set(id, { id, slot, pick: (slot - 1) % 6, locked: false });
       this.order.push(id);
       if (!this.hostId) this.hostId = id;
       return { ok: true, payload: { playerId: id, ...this.lobbyPayload() } };
@@ -47,7 +50,7 @@
       this.broadcastLobby();
     }
 
-    // The host starts the tournament once both wrestlers have locked in their chickens.
+    // The host starts the tournament once everyone (two to four wrestlers) has locked in a chicken.
     start(id) {
       if (id !== this.hostId || this.players.size < 2 || [...this.players.values()].some((p) => !p.locked)) return false;
       this.started = true;
@@ -65,11 +68,11 @@
           p.locked = !!msg.locked;
           this.broadcastLobby();
           return true;
-        case 'pad':   // the guest's controls, to the host
+        case 'pad':   // a guest's controls, to the host (who needs to know whose they are)
           if (id === this.hostId) return false;
-          this.send(this.hostId, 'pad', msg);
+          this.send(this.hostId, 'pad', { ...msg, from: id });
           return true;
-        case 'snap':  // the host's fight state, to the guest
+        case 'snap':  // the host's fight state, to the guests
         case 'flow':  // the host's match flow (new round, decision, champion, back to selection)
           if (id !== this.hostId) return false;
           if (msg.type === 'flow' && msg.kind === 'select') {

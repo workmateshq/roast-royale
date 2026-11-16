@@ -47,3 +47,13 @@ export function statBars(c) {
     ['GRIT', n(2 - s.take, 0.6, 1.3)],
   ];
 }
+
+// The four mawashi colours, by slot: blue (you against the CPU, or the host), red (the CPU, or the
+// first mate), then green and gold for the third and fourth wrestlers in an online ring.
+// body is the belt painted on the chicken; belt/glow/tag are the HUD and select-screen colours.
+export const SLOTS = [
+  { name: 'BLUE', body: 0x1d2f6b, belt: '#2f4fbf', glow: '#4f72ff', tag: '#8fa6ff' },
+  { name: 'RED', body: 0x7a1a2a, belt: '#b8283f', glow: '#ff4f6a', tag: '#ff8a9a' },
+  { name: 'GREEN', body: 0x1f5a2a, belt: '#2f9a4a', glow: '#4fdc72', tag: '#8fe0a0' },
+  { name: 'GOLD', body: 0x7a6a12, belt: '#d9b62f', glow: '#ffd23f', tag: '#ffe08a' },
+];

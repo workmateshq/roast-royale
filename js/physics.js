@@ -78,12 +78,17 @@ function startCharge(w) {
   emit(new THREE.Vector3(w.pos.x, PLATFORM_H + 0.05, w.pos.y), 14, { colour: 0xd2b07a, speed: 1.6, up: 0.6, life: 0.7, grav: 2, size: 0.18, grow: 0.5, alpha: 0.5, dir: new THREE.Vector3(-f.x, 0, -f.y) });
 }
 
-function resolvePush(w, opp) {
+// A shove lands on the nearest opponent in front of you and within reach.
+function resolvePush(w, opps) {
   const f = w.facing;
-  const to = opp.pos.clone().sub(w.pos);
-  const dist = to.length();
-  to.divideScalar(dist || 1);
-  if (!opp.done && opp.ghost <= 0 && dist < BODY_R * 2 + 0.6 && f.dot(to) > 0.45) {
+  let opp = null, to = null, dist = Infinity;
+  for (const o of opps) {
+    const d = o.pos.clone().sub(w.pos);
+    const l = d.length();
+    d.divideScalar(l || 1);
+    if (!o.done && o.ghost <= 0 && l < BODY_R * 2 + 0.6 && f.dot(d) > 0.45 && l < dist) { opp = o; to = d; dist = l; }
+  }
+  if (opp) {
     // Mostly where you're facing, a little straight at them.
     const dir = f.clone().multiplyScalar(0.7).addScaledVector(to, 0.3).normalize();
     const braced = hit(opp, w, 'push', dir.multiplyScalar((3.5 + Math.max(0, w.vel.dot(f)) * 0.6) * w.kind.stats.power), 9 * w.kind.stats.power, 0.16);
@@ -100,9 +105,25 @@ function resolvePush(w, opp) {
   }
 }
 
+// The opponent to square up to: the nearest one still standing (or the nearest at all).
+function nearest(w, opps) {
+  let best = null, bestD = Infinity;
+  for (const pass of [true, false]) {
+    for (const o of opps) {
+      if (pass && o.done) continue;
+      const d = o.pos.distanceToSquared(w.pos);
+      if (d < bestD) { best = o; bestD = d; }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
 // One physics step for one wrestler. `it` is what they're trying to do (player input or AI):
 // { move: V2 (ground direction, length <= 1), face: V2|null, charge, push, brace, dodge }.
-export function stepWrestler(w, it, opp, dt) {
+// `opps` is everyone else in the ring (an array, or a single opponent).
+export function stepWrestler(w, it, opps, dt) {
+  opps = Array.isArray(opps) ? opps : opps ? [opps] : [];
   w.t += dt;
   for (const k in w.cd) w.cd[k] = Math.max(0, w.cd[k] - dt);
   w.ghost = Math.max(0, w.ghost - dt);
@@ -145,7 +166,7 @@ export function stepWrestler(w, it, opp, dt) {
         if (w.t > 0.45) w.set('idle');
         break;
       case 'push':
-        if (!w.struck && w.t >= 0.09) { w.struck = true; resolvePush(w, opp); }
+        if (!w.struck && w.t >= 0.09) { w.struck = true; resolvePush(w, opps); }
         if (w.t > 0.3) w.set('idle');
         break;
       case 'dodge':
@@ -162,8 +183,9 @@ export function stepWrestler(w, it, opp, dt) {
     let target = null;
     if (w.state === 'idle' && it.move.lengthSq() > 0.04) target = Math.atan2(it.move.x, it.move.y);
     else if (it.face) target = Math.atan2(it.face.x, it.face.y);
-    else if (w.state !== 'charge') {   // standing still: square up to your opponent
-      const to = opp.pos.clone().sub(w.pos);
+    else if (w.state !== 'charge') {   // standing still: square up to your (nearest) opponent
+      const opp = nearest(w, opps);
+      const to = opp ? opp.pos.clone().sub(w.pos) : new V2();
       if (to.lengthSq() > 0.01) target = Math.atan2(to.x, to.y);
     }
     const maxTurn = MOVE.turnRate * turnScale * w.kind.stats.turn;

@@ -20,8 +20,17 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .bout { text-align: center; white-space: nowrap; }
 .bout .mark { font-family: var(--serif); font-weight: 800; letter-spacing: 0.32em; font-size: clamp(13px, 1.3vw, 17px); color: var(--gold); }
 .bout .name { font-family: var(--serif); font-size: clamp(15px, 1.7vw, 22px); margin-top: 2px; text-shadow: 0 2px 10px #000; }
+.meters { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.meters.right { align-items: flex-end; }
 .meter { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px 12px; width: min(360px, 34vw); backdrop-filter: blur(4px); }
 .meter.right { justify-self: end; text-align: right; }
+/* Three or four in the ring: two smaller meters stacked on each side. */
+.meter.compact { padding: 6px 12px 8px; width: min(300px, 28vw); }
+.meter.compact .who { font-size: clamp(14px, 1.3vw, 18px); gap: 8px; }
+.meter.compact .bar-label { margin: 4px 0 3px; }
+.meter.compact .bar { height: 10px; }
+.meter.compact .bar.small { height: 4px; margin-top: 4px; }
+.meter.out { opacity: 0.45; }
 .meter .who { display: flex; align-items: baseline; gap: 10px; font-weight: 700; font-size: clamp(16px, 1.6vw, 21px); letter-spacing: 0.06em; }
 .meter.right .who { flex-direction: row-reverse; }
 .meter .belt { display: inline-block; width: 26px; height: 12px; border-radius: 3px; background: var(--belt); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35), 0 0 10px var(--belt); align-self: center; }
@@ -119,12 +128,22 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
   background: linear-gradient(180deg, rgba(10, 6, 3, 0.75), rgba(10, 6, 3, 0) 22%, rgba(10, 6, 3, 0) 55%, rgba(10, 6, 3, 0.9)); }
 .select-title { margin: 0; font-family: var(--serif); font-weight: 800; letter-spacing: 0.24em; font-size: clamp(26px, 4vw, 48px);
   background: linear-gradient(180deg, #fff3d6, #e8c27a 60%, #b8893a); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.fighter { position: absolute; top: 90px; width: min(300px, 26vw); padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: left; }
-.fighter.left { left: clamp(10px, 3vw, 40px); border-left: 4px solid #2f4fbf; }
-.fighter.right { right: clamp(10px, 3vw, 40px); border-right: 4px solid #b8283f; text-align: right; }
-.ftag { font-size: 13px; letter-spacing: 0.22em; font-weight: 700; color: var(--muted); }
-.fighter.left .ftag { color: #8fa6ff; }
-.fighter.right .ftag { color: #ff8a9a; }
+.fighters { position: absolute; top: 90px; width: min(300px, 26vw); display: flex; flex-direction: column; gap: 10px; }
+.fighters.left { left: clamp(10px, 3vw, 40px); }
+.fighters.right { right: clamp(10px, 3vw, 40px); }
+.fighter { padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: left; }
+.fighter.left { border-left: 4px solid var(--slot-belt); }
+.fighter.right { border-right: 4px solid var(--slot-belt); text-align: right; }
+.ftag { font-size: 13px; letter-spacing: 0.22em; font-weight: 700; color: var(--slot-tag, var(--muted)); }
+/* Three or four wrestlers: smaller panels, two to a side. */
+.fighter.compact { padding: 8px 12px; }
+.fighter.compact .ftag { font-size: 11px; }
+.fighter.compact .fname { font-size: clamp(16px, 1.6vw, 21px); margin-top: 2px; }
+.fighter.compact .fcook { font-size: 12px; }
+.fighter.compact .fstats { margin-top: 6px; gap: 2px 8px; font-size: 10px; }
+.fighter.compact .fstats .sbar { height: 4px; }
+.fighter.compact .flock { margin-top: 4px; font-size: 13px; }
+@media (max-height: 900px) { .fighter.compact .fstats { display: none; } }
 .fname { font-family: var(--serif); font-weight: 800; font-size: clamp(18px, 2vw, 26px); letter-spacing: 0.06em; margin-top: 4px; height: 1.3em; line-height: 1.3em; white-space: nowrap; }
 .fcook { color: var(--gold); letter-spacing: 0.12em; font-size: 14px; margin-top: 2px; }
 .fstats { margin-top: 12px; display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; align-items: center; font-size: 12px; letter-spacing: 0.16em; color: var(--muted); }
@@ -144,14 +163,19 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .tile .pic { aspect-ratio: 4 / 5; background: var(--swatch) center / cover no-repeat; }
 .tile .tname { font-size: 13px; letter-spacing: 0.08em; font-weight: 700; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile .badge { position: absolute; top: 6px; padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; display: none; }
-.tile .b-p { left: 6px; background: #2f4fbf; }
-.tile .b-a { right: 6px; background: #b8283f; }
-.tile.cur-p { border-color: #4f72ff; box-shadow: 0 0 18px rgba(79, 114, 255, 0.55); }
-.tile.cur-a { border-color: #ff4f6a; box-shadow: 0 0 18px rgba(255, 79, 106, 0.55); }
-.tile.cur-p.cur-a { border-color: #c79bff; }
-.tile.cur-p .b-p, .tile.cur-a .b-a { display: block; }
-.tile.lock-p .b-p, .tile.lock-a .b-a { box-shadow: 0 0 0 2px var(--gold); }
-@media (max-width: 760px) { .fighter { top: auto; bottom: 230px; width: 44vw; padding: 8px 10px; } .fstats { display: none; } }
+.tile .b-0 { left: 6px; background: #2f4fbf; }
+.tile .b-1 { right: 6px; background: #b8283f; }
+.tile .b-2 { left: 6px; top: 30px; background: #2f9a4a; }
+.tile .b-3 { right: 6px; top: 30px; background: #d9b62f; color: #2a1a0c; }
+.tile.cur-0 { border-color: #4f72ff; box-shadow: 0 0 18px rgba(79, 114, 255, 0.55); }
+.tile.cur-1 { border-color: #ff4f6a; box-shadow: 0 0 18px rgba(255, 79, 106, 0.55); }
+.tile.cur-2 { border-color: #4fdc72; box-shadow: 0 0 18px rgba(79, 220, 114, 0.55); }
+.tile.cur-3 { border-color: #ffd23f; box-shadow: 0 0 18px rgba(255, 210, 63, 0.55); }
+.tile.multi { border-color: #c79bff; }
+.tile.cur-0 .b-0, .tile.cur-1 .b-1, .tile.cur-2 .b-2, .tile.cur-3 .b-3 { display: block; }
+.tile.lock-0 .b-0, .tile.lock-1 .b-1, .tile.lock-2 .b-2 { box-shadow: 0 0 0 2px var(--gold); }
+.tile.lock-3 .b-3 { box-shadow: 0 0 0 2px #fff3d6; }
+@media (max-width: 760px) { .fighters { top: auto; bottom: 230px; width: 44vw; } .fighter { padding: 8px 10px; } .fstats { display: none; } }
 
 .ready-btn { display: block; margin: 4px auto 0; min-width: 200px; padding: 6px 28px; }
 .ready-btn b { font-size: 18px; letter-spacing: 0.2em; }

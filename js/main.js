@@ -4,7 +4,7 @@ import { RING_R, OUT_R, PLATFORM, PLATFORM_H, FIXED_DT, WINS_NEEDED, BOUT_NAMES,
 import { renderer, scene, camera, canvas, updateBanners, BANNER_R } from './scene.js';
 import { emit, updateParticles, sfx, shake, view, updateFlashes, excite } from './effects.js';
 import { loadModel, poseChicken, debugRig, setSkin, renderPortraits } from './chicken.js';
-import { ROSTER } from './roster.js';
+import { ROSTER, SLOTS } from './roster.js';
 import { buildRoster, setPortraits, renderSelect } from './select.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
@@ -14,7 +14,7 @@ import { say, voiceKey, preloadVoices } from './voice.js';
 import { keys, pressed, pollPad, playerIntent, inputState, camDrag } from './input.js';
 
 // =====================================================================================
-// Camera: orbits behind your shoulder, framing both wrestlers; pulls back for charges,
+// Camera: orbits behind your shoulder, framing you and your nearest rival; pulls back for charges,
 // leans in for close shoves, shakes on impacts.
 // =====================================================================================
 const cam = { az: 0.6, dist: 13, el: 0.6, target: new THREE.Vector3(0, PLATFORM_H + 0.4, 0), chargeK: 0 };
@@ -24,13 +24,14 @@ function updateCamera(dt) {
   if (game.phase === 'title' || game.phase === 'online') {
     cam.az += dt * 0.12;
   } else if (game.phase === 'select') {
-    // Front-on to the two contenders standing in the ring.
-    camera.position.set(0, PLATFORM_H + 1.5, 7.4);
+    // Front-on to the contenders standing in a row in the ring (further back for three or four).
+    const z = 7.4 + Math.max(0, match.active.length - 2) * 1.5;
+    camera.position.set(0, PLATFORM_H + 1.5 + (z - 7.4) * 0.12, z);
     camera.lookAt(0, PLATFORM_H + 0.72, 0);
-    cam.az = 0; cam.dist = 7.4; cam.target.set(0, PLATFORM_H + 0.72, 0);
+    cam.az = 0; cam.dist = z; cam.target.set(0, PLATFORM_H + 0.72, 0);
     return;
   } else {
-    const you = me(), rival = them();
+    const [you, rival] = framing();
     const mid = you.pos.clone().add(rival.pos).multiplyScalar(0.5).clampLength(0, RING_R);
     const sep = you.pos.distanceTo(rival.pos);
     const d = you.pos.clone().sub(rival.pos);
@@ -38,9 +39,9 @@ function updateCamera(dt) {
       const wantAz = Math.atan2(d.x, d.y) + 1.05 + camDrag.yaw;   // three-quarters side-on to the clash, plus where you've dragged it
       cam.az = wrap(cam.az + wrap(wantAz - cam.az) * Math.min(1, dt * (camDrag.active ? 14 : game.phase === 'ready' ? 3 : 0.8)));
     }
-    const charging = [player, cpu].some((w) => w.state === 'windup' || w.state === 'charge');
+    const charging = actives().some((w) => w.state === 'windup' || w.state === 'charge');
     cam.chargeK += ((charging ? 1 : 0) - cam.chargeK) * Math.min(1, dt * 2.5);
-    const shoving = sep < 2.1 && [player, cpu].some((w) => w.state === 'push' || w.state === 'brace');
+    const shoving = sep < 2.1 && actives().some((w) => w.state === 'push' || w.state === 'brace');
     wantDist = clamp(5.6 + sep * 0.85 + cam.chargeK * 2.2 - (shoving ? 0.8 : 0) - view.zoomPunch * 0.5, 5.2, 13);
     wantEl = clamp(0.3 + camDrag.pitch, 0.08, 1.2);   // low, side-on, so you can see their legs working
     wantTarget.set(mid.x, PLATFORM_H + 0.6, mid.y);
@@ -156,12 +157,39 @@ const POSE = _q.has('pose') ? { state: _q.get('pose') || 'idle', az: Number(_q.g
 let calloutTimer = 0, gyojiTimer = 0;
 function callout(html, secs = 1.4) { $('callout').innerHTML = html; $('callout').classList.add('show'); calloutTimer = secs; }
 function gyoji(text, secs = 1.6) { $('gyoji').textContent = text; $('gyoji').classList.add('show'); gyojiTimer = secs; }
+// One balance meter per wrestler in the ring: left and right for two; for three or four, two
+// smaller ones stacked on each side.
+const meters = SLOTS.map((c, s) => {
+  const m = document.createElement('div');
+  m.className = 'meter';
+  m.id = `meter-${s}`;
+  m.hidden = true;
+  m.innerHTML = `<div class="who"><span class="belt" style="--belt:${c.belt}" title="${title(c.name)} mawashi"></span><span id="name-${s}"></span><span class="rank" id="rank-${s}"></span><span class="stars" id="stars-${s}"></span></div>
+    <div class="bar-label"><span>BALANCE</span><span id="pct-${s}">0%</span></div>
+    <div class="bar"><div class="fill" id="fill-${s}"></div><div class="ticks"></div></div>
+    <div class="bar small"><div class="fill" id="brace-${s}"></div></div>`;
+  $('meters-l').append(m);
+  return m;
+});
+function layoutHud() {
+  const compact = match.active.length > 2;
+  meters.forEach((m) => { m.hidden = true; });
+  match.active.forEach((s, k) => {
+    const m = meters[s], side = k % 2;
+    m.hidden = false;
+    m.className = `meter ${side ? 'right' : 'left'}${compact ? ' compact' : ''}`;
+    $(side ? 'meters-r' : 'meters-l').append(m);
+  });
+}
 function updateHud(dt) {
-  for (const [w, s] of [[player, 'p'], [cpu, 'a']]) {
+  const multi = match.active.length > 2;
+  for (const s of match.active) {
+    const w = wrestlers[s];
     const b = Math.round(w.balance);
     $('fill-' + s).style.width = `${b}%`;
     $('pct-' + s).textContent = `${b}%`;
-    $('meter-' + s).classList.toggle('danger', b > 75 && !w.done);
+    meters[s].classList.toggle('danger', b > 75 && !w.done);
+    meters[s].classList.toggle('out', multi && w.done && ['ready', 'fight', 'decision'].includes(game.phase));   // knocked out of this round
     $('brace-' + s).style.width = `${Math.round(w.braceStamina * 100)}%`;
     // Round record as sumo stars: white for a win, black for a loss.
     $('stars-' + s).textContent = game.results.map((r) => (r === s ? '○' : '●')).join(' ');
@@ -171,37 +199,68 @@ function updateHud(dt) {
 }
 
 // =====================================================================================
-// Who's wrestling whom. Blue (left meter) is you against the CPU, or the host online; red is the
-// CPU, or the guest online. `me()` is whichever one this browser controls.
+// Who's wrestling whom. Each slot has its own wrestler: blue (slot 0) is you against the CPU, or the
+// host online; red (slot 1) is the CPU, or the first mate; green and gold are the third and fourth
+// wrestlers in an online ring. All four exist from the start; only the active ones are shown,
+// simulated and metered. `me()` is whichever one this browser controls.
 // =====================================================================================
-const player = new Wrestler('BLUE', 0x1d2f6b);
-const cpu = new Wrestler('RED', 0x7a1a2a);
+const wrestlers = SLOTS.map((c) => new Wrestler(c.name, c.body));
+const player = wrestlers[0];
+const cpu = wrestlers[1];
 const brain = new Brain(cpu, player);
-const game = { phase: 'title', bout: 1, wins: { p: 0, a: 0 }, results: [], phaseT: 0, realT: 0, timeScale: 1, pending: null, winner: null, cues: [], rematch: false, lastNokotta: 0, decision: null };
-const match = { mode: 'cpu', side: 'p', picks: [0, 1], room: null };
-const me = () => (match.side === 'a' ? cpu : player);
-const them = () => (match.side === 'a' ? player : cpu);
-const sideOf = (w) => (w === player ? 'p' : 'a');
-const online = { net: null, players: [], remote: { move: new V2(), charge: false, brace: false, push: false, dodge: false }, sendIn: 0 };
+const zeros = () => SLOTS.map(() => 0);
+const game = { phase: 'title', bout: 1, wins: zeros(), results: [], phaseT: 0, realT: 0, timeScale: 1, pending: null, winner: null, cues: [], rematch: false, lastNokotta: 0, decision: null };
+// slot: the wrestler this browser controls; active: the slots in the ring, in order; picks: each slot's chicken.
+const match = { mode: 'cpu', slot: 0, active: [0, 1], picks: [0, 1, 2, 3], room: null };
+const me = () => wrestlers[match.slot];
+const actives = () => match.active.map((s) => wrestlers[s]);
+const slotOf = (w) => wrestlers.indexOf(w);
+function nearestTo(w, list) {
+  let best = null, bestD = Infinity;
+  for (const o of list) { const d = o.pos.distanceToSquared(w.pos); if (o !== w && d < bestD) { best = o; bestD = d; } }
+  return best;
+}
+// Your nearest rival still standing (or, if everyone else is down, the nearest at all).
+const them = () => { const m = me(), others = actives().filter((w) => w !== m); return nearestTo(m, others.filter((w) => !w.done)) || nearestTo(m, others) || m; };
+// Who the fight camera frames: you and your nearest rival; once you're out, the fight that's left.
+function framing() {
+  const m = me(), act = actives();
+  if (act.length <= 2) return [m, act.find((w) => w !== m) || m];
+  const alive = act.filter((w) => !w.done);
+  if (!m.done) return [m, them()];
+  if (alive.length >= 2) return [alive[0], nearestTo(alive[0], alive)];
+  return [m, alive[0] || them()];
+}
+const remoteIdle = () => ({ move: new V2(), charge: false, brace: false, push: false, dodge: false });
+const online = { net: null, players: [], remote: SLOTS.map(remoteIdle), sendIn: 0 };
 const isGuest = () => match.mode === 'online' && online.net && !online.net.isHost;
-const label = (w) => (w === me() ? 'YOU' : w.kind.name);
-const title = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+// A chicken's name, with its colour if someone else in the ring picked the same one.
+const nameOf = (w) => (actives().some((o) => o !== w && o.kind === w.kind) ? `${w.kind.name} (${SLOTS[slotOf(w)].name})` : w.kind.name);
+const label = (w) => (w === me() ? 'YOU' : nameOf(w));
+function title(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
 // 'You are the winner', 'Kogeta is the champion'
-const winnerLine = (w, what) => (w === me() ? `You are the ${what}` : `${title(w.kind.name)} is the ${what}`);
-const who = (w) => (w === me() ? 'YOU' : match.mode === 'online' ? 'YOUR MATE' : 'CPU');
+const winnerLine = (w, what) => (w === me() ? `You are the ${what}` : `${title(nameOf(w))} is the ${what}`);
+const who = (w) => (w === me() ? 'YOU' : match.mode !== 'online' ? 'CPU' : match.active.length > 2 ? 'MATE' : 'YOUR MATE');
 
-function setKinds(blue, red) {
-  match.picks = [blue, red];
-  player.kind = ROSTER[blue];
-  cpu.kind = ROSTER[red];
-  setSkin(player.vis, player.kind.skin);
-  setSkin(cpu.vis, cpu.kind.skin);
-  for (const [w, s] of [[player, 'p'], [cpu, 'a']]) {
+// Which slots are in the ring: only those are shown (the rest are parked out of sight).
+function setActive(slots) {
+  match.active = [...slots].sort((x, y) => x - y);
+  wrestlers.forEach((w, s) => { w.vis.root.visible = w.vis.blob.visible = match.active.includes(s); });
+  layoutHud();
+}
+
+// picks: a chicken (roster index) for each slot.
+function setKinds(picks) {
+  picks.forEach((p, s) => { if (s < wrestlers.length && Number.isInteger(p)) match.picks[s] = p; });
+  wrestlers.forEach((w, s) => {
+    w.kind = ROSTER[match.picks[s] % ROSTER.length];
+    setSkin(w.vis, w.kind.skin);
     $('name-' + s).textContent = w.kind.name;
     $('rank-' + s).textContent = `${who(w)} · ${w.kind.rank}`;
-  }
+  });
 }
-setKinds(0, 1);
+setActive([0, 1]);
+setKinds([0, 1, 2, 3]);
 
 loadModel((text) => { $('load-note').textContent = text; }, () => {
   setPortraits(renderPortraits(ROSTER.map((c) => c.skin)));
@@ -228,8 +287,10 @@ focusTitle(0);
 
 function goTitle(note = '') {
   if (match.mode === 'online' && online.net) online.net.leave();
+  online.players = [];
   match.mode = 'cpu';
-  match.side = 'p';
+  match.slot = 0;
+  setActive([0, 1]);
   game.phase = 'title';
   showScreen('title');
   $('load-note').textContent = note;
@@ -259,15 +320,23 @@ function goSelect() {
   if (match.mode === 'cpu') sel.cpuI = 1 + ((Math.random() * (ROSTER.length - 1)) | 0);
   showScreen('select');
   $('room-bar').hidden = match.mode !== 'online';
-  // The two contenders stand side by side in the ring, facing you.
-  player.reset(-0.85, 0.35);
-  cpu.reset(0.85, -0.35);
-  for (const w of [player, cpu]) w.fallSign = 1;
+  if (match.mode === 'cpu') setActive([0, 1]);
   game.winner = null;
   game.results = [];
   heard = null;   // nothing's announced for the chickens already standing there
   sendPick();
   drawSelect();
+}
+
+// The contenders stand side by side in the ring, facing you.
+function lineUp(slots) {
+  const n = slots.length;
+  slots.forEach((s, k) => {
+    const w = wrestlers[s];
+    const x = n === 2 ? (k ? 0.85 : -0.85) : (k - (n - 1) / 2) * 1.5;
+    w.reset(x, n === 2 ? (k ? -0.35 : 0.35) : -x * 0.25);
+    w.fallSign = 1;
+  });
 }
 
 function moveCursor(d) {
@@ -280,7 +349,6 @@ function moveCursor(d) {
 
 function lockIn() {
   if (sel.locked) return;
-  if (match.mode === 'online' && online.players.length < 2) { $('room-status').textContent = 'Waiting for your mate to arrive...'; }
   sel.locked = true;
   sfx.taiko();
   if (match.mode === 'cpu') { sel.cpuT = 0; if (sel.cpuLocked) sel.startIn = 1.3; }
@@ -300,46 +368,63 @@ function sendPick() {
   if (match.mode === 'online' && online.net) online.net.send({ type: 'pick', pick: sel.i, locked: sel.locked });
 }
 
-// The announcer calls your chicken whenever you pick or ready one, and your opponent's once they're locked in.
+// The announcer calls your chicken whenever you pick or ready one, and each opponent's once they're locked in.
 let heard = null;
-function announce(mine, other) {
-  const now = { i: mine.i, locked: mine.locked, oi: other.waiting ? null : other.i, ol: !!other.locked };
+function announce(list) {
+  const now = {};
+  for (const d of list) now[d.slot] = { i: d.waiting ? null : d.i, locked: !!d.locked };
   if (heard) {
-    if (now.i !== heard.i || (now.locked && !heard.locked)) say(voiceKey(ROSTER[now.i].name), { interrupt: true });
-    if (now.ol && now.oi !== null && (!heard.ol || now.oi !== heard.oi)) say(voiceKey(ROSTER[now.oi].name));
+    const m = now[match.slot], h = heard[match.slot];
+    if (m && m.i !== null && (!h || m.i !== h.i || (m.locked && !h.locked))) say(voiceKey(ROSTER[m.i].name), { interrupt: true });
+    for (const d of list) {
+      const o = now[d.slot], ho = heard[d.slot];
+      if (d.slot === match.slot || !o.locked || o.i === null) continue;
+      if (!ho || !ho.locked || ho.i !== o.i) say(voiceKey(ROSTER[o.i].name));
+    }
   }
   heard = now;
 }
 
 function drawSelect() {
-  const mine = { i: sel.i, locked: sel.locked, tag: 'YOU' };
-  let other;
+  if (game.phase !== 'select') return;   // (readying up can start the tournament before this redraw)
+  const mine = { slot: match.slot, i: sel.i, locked: sel.locked, tag: 'YOU' };
+  let list;
   if (match.mode === 'cpu') {
-    other = { i: sel.cpuI, locked: sel.cpuLocked, tag: 'CPU' };
+    list = [mine, { slot: 1, i: sel.cpuI, locked: sel.cpuLocked, tag: 'CPU' }];
   } else {
-    const o = online.players.find((p) => p.id !== online.net.id);
-    other = o ? { i: o.pick, locked: o.locked, tag: 'YOUR MATE' } : { i: null, locked: false, tag: 'YOUR MATE', waiting: 'WAITING...' };
+    const ps = online.players;
+    const mate = ps.length > 2 ? 'MATE' : 'YOUR MATE';
+    list = ps.map((p) => (p.id === online.net.id ? mine : { slot: p.slot - 1, i: p.pick, locked: p.locked, tag: 'YOUR MATE', badge: mate }));
+    if (!list.includes(mine)) list.push(mine);
+    // On your own: an empty spot beside you, waiting for a mate.
+    if (list.length < 2) {
+      let free = 0;
+      while (list.some((d) => d.slot === free)) free++;
+      list.push({ slot: free, i: null, locked: false, tag: 'YOUR MATE', waiting: 'WAITING...' });
+    }
+    list.sort((x, y) => x.slot - y.slot);
   }
-  const sides = match.side === 'p' ? { p: mine, a: other } : { p: other, a: mine };
-  renderSelect(sides);
-  announce(mine, other);
+  const slots = list.map((d) => d.slot);
+  if (slots.join() !== match.active.join() || game.phaseT < 0.05) { setActive(slots); lineUp(match.active); }
+  renderSelect(list);
+  announce(list);
   $('ready-btn').classList.toggle('on', sel.locked);
 
-  // The two chickens in the ring wear the picks (and crouch once locked in).
-  const blue = sides.p.waiting ? player.kind : ROSTER[sides.p.i];
-  const red = sides.a.waiting ? cpu.kind : ROSTER[sides.a.i];
-  const was = [player.kind, cpu.kind];
-  setKinds(ROSTER.indexOf(blue), ROSTER.indexOf(red));
-  // A newly chosen chicken shows itself off with a shiko: right leg, then left.
-  if (player.kind !== was[0] || game.phaseT < 0.05) player.shikoT = 0;
-  if (cpu.kind !== was[1] || game.phaseT < 0.05) cpu.shikoT = 0;
-  player.set(sides.p.locked ? 'brace' : 'idle');
-  cpu.set(sides.a.locked ? 'brace' : 'idle');
+  // The chickens in the ring wear the picks (and crouch once locked in).
+  const was = wrestlers.map((w) => w.kind);
+  setKinds(SLOTS.map((_, s) => { const d = list.find((e) => e.slot === s); return d && !d.waiting ? d.i : null; }));
+  for (const d of list) {
+    const w = wrestlers[d.slot];
+    // A newly chosen chicken shows itself off with a shiko: right leg, then left.
+    if (w.kind !== was[d.slot] || game.phaseT < 0.05) w.shikoT = 0;
+    w.set(d.locked ? 'brace' : 'idle');
+  }
   if (match.mode === 'online') {
     const n = online.players.length;
-    $('room-status').textContent = n < 2 ? 'Waiting for your mate. Send them the code or link.'
-      : sel.locked && !other.locked ? 'Waiting for your mate to choose...'
-        : !sel.locked ? 'Your mate is here. Choose your chicken.' : 'Both ready!';
+    const ready = online.players.filter((p) => (p.id === online.net.id ? sel.locked : p.locked)).length;
+    $('room-status').textContent = n < 2 ? 'Waiting for mates. Send them the code or link.'
+      : ready === n ? "Everyone's ready!"
+        : sel.locked ? 'Waiting for everyone to be ready...' : `${n} wrestlers in the ring. Choose your chicken.`;
   }
 }
 
@@ -381,17 +466,27 @@ function boutTitle() {
 }
 
 function beginTournament() {
-  Object.assign(game, { bout: 1, wins: { p: 0, a: 0 }, results: [], rematch: false });
+  Object.assign(game, { bout: 1, wins: zeros(), results: [], rematch: false });
   startBout();
 }
 
 function startBout() {
-  flow({ kind: 'bout', bout: game.bout, wins: game.wins, results: game.results, rematch: game.rematch, picks: match.picks });
+  flow({ kind: 'bout', bout: game.bout, wins: game.wins, results: game.results, rematch: game.rematch, picks: match.picks, active: match.active });
   showScreen(null);
   canvas.focus();
-  player.reset(-1.45, Math.PI / 2);
-  cpu.reset(1.45, -Math.PI / 2);
-  player.fallSign = cpu.fallSign = 1;
+  // Two face off across the ring; three or four start spread round it, all facing the middle.
+  const act = actives();
+  act.forEach((w, k) => {
+    if (act.length === 2) w.reset(k ? 1.45 : -1.45, k ? -Math.PI / 2 : Math.PI / 2);
+    else {
+      const a = (k / act.length) * Math.PI * 2;
+      w.reset(0, 0);
+      w.pos.set(-Math.cos(a) * 1.45, Math.sin(a) * 1.45);
+      w.heading = Math.atan2(-w.pos.x, -w.pos.y);
+    }
+    w.fallSign = 1;
+  });
+  online.remote.forEach((r) => Object.assign(r, remoteIdle()));
   brain.reset();
   brain.level = clamp(0.55 + 0.22 * (game.bout - 1), 0, 1);
   game.phase = 'ready';
@@ -407,7 +502,7 @@ function startBout() {
   };
   game.cues = [
     { at: 0.05, fn: () => { sfx.clack(); sfx.clack(0.18); callout(`ROUND ${game.bout}<small>${BOUT_NAMES[Math.min(game.bout, 3) - 1].toUpperCase()}${game.rematch ? ' · REMATCH' : ''}</small>`, 1.6); } },
-    { at: 1.0, fn: () => { throwSalt(player); throwSalt(cpu); gyoji('The ring is purified with salt.', 1.2); } },
+    { at: 1.0, fn: () => { actives().forEach(throwSalt); gyoji('The ring is purified with salt.', 1.2); } },
     { at: 2.0, fn: () => { callout('HAKKEYOI!', 1.0); sfx.taiko(); say('hakkeyoi', { interrupt: true }); } },
     { at: 3.1, fn: () => { excite(5); callout('NOKOTTA!', 0.9); say('nokotta', { interrupt: true }); sfx.taiko(); sfx.taiko(0.12); sfx.crowd(0.25); game.phase = 'fight'; } },
   ];
@@ -416,9 +511,11 @@ function startBout() {
 
 const idle = () => ({ move: new V2(), face: null, charge: false, push: false, brace: false, dodge: false });
 
-// After each physics step: has anyone toppled or left the ring?
+// After each physics step: has anyone toppled or left the ring? Whoever has is out of this round;
+// once one chicken (or none) is left standing, the round is decided.
 function checkEvents() {
-  for (const w of [player, cpu]) {
+  const act = actives();
+  for (const w of act) {
     if (w.done) continue;
     if (w.balance >= 100) {
       w.set('down');
@@ -436,19 +533,25 @@ function checkEvents() {
       const lh = w.lastHit;
       w.how = lh && clock.t - lh.at < 1.6 ? 'YORIKIRI' : 'ISAMIASHI';
     }
-    if (w.done && !game.pending) game.pending = { at: clock.t };
   }
+  if (!game.pending && act.filter((w) => !w.done).length <= 1) game.pending = { at: clock.t };
 }
 
 function decide() {
-  const fallen = [player, cpu].filter((w) => w.done).sort((a, b) => a.doneAt - b.doneAt);
-  if (fallen.length === 2 && fallen[1].doneAt - fallen[0].doneAt < 0.12) {
+  const act = actives();
+  const standing = act.filter((w) => !w.done);
+  const fallen = act.filter((w) => w.done).sort((a, b) => a.doneAt - b.doneAt);
+  const n = fallen.length;
+  // Nobody left standing, the last two going within a moment of each other: the judges can't split them.
+  if (!standing.length && n >= 2 && fallen[n - 1].doneAt - fallen[n - 2].doneAt < 0.12) {
     game.decision = { kimarite: 'MONO-II!', gloss: 'THE JUDGES CONFER', winner: null, flavour: 'Both athletes left the contest at the same instant. Torn between them, the judges order the round fought again.' };
     game.rematch = true;
   } else {
-    const loser = fallen[0];
-    const winner = loser === player ? cpu : player;
-    const key = sideOf(winner);
+    // The last chicken standing (or, if it went down too, the last to go) wins; the technique is how
+    // the one before it went out.
+    const winner = standing[0] || fallen[n - 1];
+    const loser = standing.length ? fallen[n - 1] : fallen[n - 2];
+    const key = slotOf(winner);
     game.wins[key]++;
     game.results.push(key);
     const gloss = { YORIKIRI: 'FORCED OUT OF THE RING', KOPPORI: 'TOPPLED · BALANCE LOST', ISAMIASHI: 'STEPPED OUT UNASSISTED' }[loser.how];
@@ -461,15 +564,22 @@ function decide() {
 function enterDecision() {
   excite(12);
   cheer(true);
-  game.winner = game.decision.winner ? (game.decision.winner === 'p' ? player : cpu) : null;
+  game.winner = game.decision.winner != null ? wrestlers[game.decision.winner] : null;
   game.phase = 'decision';
   game.phaseT = 0;
   game.timeScale = 0.28;   // the slow, solemn replay of the moment it ended
   sfx.crowd(0.45);
 }
 
-const tally = () => `${label(player)} ${game.wins.p} · ${game.wins.a} ${label(cpu)}`;
-const waitCta = () => (isGuest() ? 'WAITING FOR YOUR MATE TO CONTINUE...' : null);
+// 'YOU 1 · 0 KOGETA' between two; 'YOU 1 · KOGETA 0 · REITŌ 1' for three or four.
+const tally = () => {
+  const act = actives();
+  if (act.length === 2) return `${label(act[0])} ${game.wins[slotOf(act[0])]} · ${game.wins[slotOf(act[1])]} ${label(act[1])}`;
+  return act.map((w) => `${label(w)} ${game.wins[slotOf(w)]}`).join(' · ');
+};
+const champion = () => actives().reduce((b, w) => (game.wins[slotOf(w)] > game.wins[slotOf(b)] ? w : b));
+const decided = () => game.wins.some((n) => n >= WINS_NEEDED);
+const waitCta = () => (isGuest() ? (online.players.length > 2 ? 'WAITING FOR THE HOST TO CONTINUE...' : 'WAITING FOR YOUR MATE TO CONTINUE...') : null);
 
 // The winning technique, written as it would be on the banzuke.
 const KANJI = { 'YORIKIRI!': '寄り切り', 'KOPPORI!': 'こっぽり', 'ISAMIASHI!': '勇み足', 'MONO-II!': '物言い', 'YŪSHŌ': '優勝' };
@@ -479,7 +589,7 @@ function showDecision() {
   $('dec-kimarite').textContent = d.kimarite;
   $('dec-kanji').textContent = KANJI[d.kimarite] || '';
   say(d.kimarite, { interrupt: true });
-  $('dec-winner').textContent = d.winner ? winnerLine(d.winner === 'p' ? player : cpu, 'winner') : 'No winner this time. The round will be fought again';
+  $('dec-winner').textContent = d.winner != null ? winnerLine(wrestlers[d.winner], 'winner') : 'No winner this time. The round will be fought again';
   $('dec-flavour').textContent = '';
   $('dec-tally').textContent = tally();
   $('dec-cta').textContent = waitCta() || 'PRESS ANY KEY TO CONTINUE';
@@ -488,7 +598,7 @@ function showDecision() {
 
 const CHAMPION_WAIT = 10;   // seconds on the champion screen
 function showChampion() {
-  const champ = game.wins.p > game.wins.a ? player : cpu;
+  const champ = champion();
   game.winner = champ;
   const youWon = champ === me();
   $('dec-gloss').textContent = 'THE TOURNAMENT IS DECIDED';
@@ -527,7 +637,7 @@ function updateFlow(real) {
       break;
     case 'screen':
       if (pressed.start && game.phaseT > 0.5 && !isGuest()) {
-        if (game.wins.p >= WINS_NEEDED || game.wins.a >= WINS_NEEDED) { flow({ kind: 'champion', wins: game.wins, results: game.results }); showChampion(); }
+        if (decided()) { flow({ kind: 'champion', wins: game.wins, results: game.results }); showChampion(); }
         else { if (!game.rematch) game.bout++; startBout(); }
       }
       break;
@@ -570,23 +680,25 @@ function unpackW(w, a) {
 }
 
 function onLobby(payload) {
+  const left = online.players.some((p) => !payload.players.some((q) => q.id === p.id));
   online.players = payload.players;
   const mine = payload.players.find((p) => p.id === online.net.id);
-  if (mine) match.side = mine.slot === 2 ? 'a' : 'p';
+  if (mine) match.slot = mine.slot - 1;
   match.room = payload.roomCode;
   $('room-code').textContent = payload.roomCode;
   history.replaceState(null, '', `${basePath()}?room=${encodeURIComponent(payload.roomCode.toLowerCase())}`);
   const inMatch = !['title', 'online', 'select'].includes(game.phase);
-  if (inMatch && payload.players.length < 2) {
-    callout('YOUR MATE HAS LEFT<small>THE RING AWAITS A NEW CHALLENGER</small>', 2.4);
+  // Someone left mid-tournament (the room has gone back to choosing): everyone back to the select screen.
+  if (inMatch && (payload.players.length < 2 || (left && !payload.started))) {
+    callout(payload.players.length < 2 ? 'YOUR MATE HAS LEFT<small>THE RING AWAITS A NEW CHALLENGER</small>' : 'A MATE HAS LEFT<small>CHOOSE YOUR CHICKENS AGAIN</small>', 2.4);
     goSelect();
     return;
   }
   if (game.phase === 'select') {
     if (mine) { sel.i = mine.pick; sel.locked = mine.locked; }
     drawSelect();
-    // Both locked in: the host starts the tournament.
-    if (online.net.isHost && payload.players.length === 2 && payload.players.every((p) => p.locked) && !payload.started) online.net.start();
+    // Everyone (two to four) locked in: the host starts the tournament.
+    if (online.net.isHost && payload.players.length >= 2 && payload.players.every((p) => p.locked) && !payload.started) online.net.start();
   }
 }
 
@@ -594,6 +706,8 @@ function joined(res) {
   if (!res.ok) { $('online-status').textContent = res.error || "Couldn't get into the ring."; $('online-status').classList.add('error'); return; }
   match.mode = 'online';
   $('online-status').textContent = '';
+  const mine = res.players.find((p) => p.id === online.net.id);
+  if (mine) Object.assign(sel, { i: mine.pick % ROSTER.length, locked: false });
   onLobby(res);
   goSelect();
 }
@@ -601,12 +715,19 @@ function joined(res) {
 online.net = createOnline({
   lobbyUpdate: (p) => { if (match.mode === 'online') onLobby(p); },
   gameStarted: (p) => {
-    const blue = p.players.find((q) => q.slot === 1), red = p.players.find((q) => q.slot === 2);
-    setKinds(blue ? blue.pick : 0, red ? red.pick : 0);
+    online.players = p.players;
+    setActive(p.players.map((q) => q.slot - 1));
+    const picks = SLOTS.map(() => null);
+    for (const q of p.players) picks[q.slot - 1] = q.pick;
+    setKinds(picks);
     if (online.net.isHost) beginTournament();
   },
   pad: (m) => {
-    const r = online.remote;
+    // A mate's controls, for whichever wrestler is theirs.
+    const from = online.players.find((q) => q.id === m.from);
+    if (!from || !Array.isArray(m.m)) return;
+    const r = online.remote[from.slot - 1];
+    if (!r) return;
     r.move.set(m.m[0], m.m[1]).clampLength(0, 1);
     r.charge = !!m.c; r.brace = !!m.b;
     if (m.p) r.push = true;
@@ -615,14 +736,14 @@ online.net = createOnline({
   snap: (m) => {
     if (!isGuest()) return;
     clock.t = m.c; contact.t = m.ct; game.timeScale = m.ts;
-    unpackW(player, m.w[0]);
-    unpackW(cpu, m.w[1]);
+    (m.a || []).forEach((s, k) => { if (wrestlers[s] && m.w[k]) unpackW(wrestlers[s], m.w[k]); });
     if (m.ph === 'fight' && game.phase === 'ready') { game.phase = 'fight'; game.cues.forEach((c) => { if (!c.done) { c.done = true; c.fn(); } }); }
   },
   flow: (f) => {
     if (!isGuest()) return;
     if (f.kind === 'bout') {
-      setKinds(f.picks[0], f.picks[1]);
+      if (Array.isArray(f.active)) setActive(f.active);
+      setKinds(f.picks);
       Object.assign(game, { bout: f.bout, wins: f.wins, results: f.results, rematch: f.rematch });
       startBout();
     } else if (f.kind === 'decision') {
@@ -651,14 +772,14 @@ function sendPad(real) {
   online.net.send({ type: 'pad', m: [r3(it.move.x), r3(it.move.y)], c: it.charge, b: it.brace, p: it.push, d: it.dodge });
   pressed.push = pressed.dodge = false;
 }
-// Host: send the fight's state to your mate about 30 times a second.
+// Host: send the fight's state to your mates about 30 times a second.
 function sendSnap(real) {
   if (match.mode !== 'online' || !online.net || !online.net.isHost || online.players.length < 2) return;
   if (!['ready', 'fight', 'decision', 'screen', 'champion'].includes(game.phase)) return;
   online.sendIn -= real;
   if (online.sendIn > 0) return;
   online.sendIn = 1 / 30;
-  online.net.send({ type: 'snap', c: r3(clock.t), ct: r3(contact.t), ts: game.timeScale, ph: game.phase, w: [packW(player), packW(cpu)] });
+  online.net.send({ type: 'snap', c: r3(clock.t), ct: r3(contact.t), ts: game.timeScale, ph: game.phase, a: match.active, w: actives().map(packW) });
 }
 
 // =====================================================================================
@@ -668,7 +789,7 @@ function chooseCpu() {
   sfx.clack();
   preloadVoices();
   match.mode = 'cpu';
-  match.side = 'p';
+  match.slot = 0;
   goSelect();
 }
 function chooseOnline() {
@@ -783,7 +904,7 @@ function tick(now, draw) {
     sendPad(real);
     if (['ready', 'fight', 'decision', 'screen', 'champion'].includes(game.phase)) {
       const k = real * game.timeScale;
-      for (const w of [player, cpu]) { w.pos.addScaledVector(w.vel, k); w.t += k; }
+      for (const w of actives()) { w.pos.addScaledVector(w.vel, k); w.t += k; }
       clock.t += k;
     }
   } else {
@@ -792,15 +913,31 @@ function tick(now, draw) {
       acc += real * game.timeScale;
       let steps = 0;
       const remote = match.mode === 'online';
+      const act = actives();
       while (acc >= FIXED_DT && steps < 24) {
         const fighting = game.phase === 'fight';
-        const pi = fighting ? playerIntent(cam.az) : idle();
-        const ci = !fighting ? idle() : remote ? { ...online.remote, face: null } : brain.think(FIXED_DT);
-        if (steps > 0) pi.push = pi.dodge = false;   // a click or tap counts once
-        if (remote) online.remote.push = online.remote.dodge = false;
-        stepWrestler(player, pi, cpu, FIXED_DT);
-        stepWrestler(cpu, ci, player, FIXED_DT);
-        collide(player, cpu);
+        // Everyone's intent first (yours, the CPU's or each mate's), then everyone moves.
+        const intents = act.map((w) => {
+          const s = slotOf(w);
+          if (!fighting) return idle();
+          if (s === match.slot) {
+            const it = playerIntent(cam.az);
+            if (steps > 0) it.push = it.dodge = false;   // a click or tap counts once
+            return it;
+          }
+          if (!remote) return brain.think(FIXED_DT);
+          const r = online.remote[s], it = { ...r, move: r.move.clone(), face: null };
+          r.push = r.dodge = false;
+          return it;
+        });
+        act.forEach((w, k) => stepWrestler(w, intents[k], act.filter((o) => o !== w), FIXED_DT));
+        // Every pair can collide (in a free-for-all, a fallen chicken is out of the way).
+        for (let i = 0; i < act.length; i++) {
+          for (let j = i + 1; j < act.length; j++) {
+            if (act.length > 2 && (act[i].done || act[j].done)) continue;
+            collide(act[i], act[j]);
+          }
+        }
         clock.t += FIXED_DT;
         if (fighting && !POSE) checkEvents();
         acc -= FIXED_DT;
@@ -815,8 +952,7 @@ function tick(now, draw) {
   if (game.phase !== 'fight') pressed.push = pressed.dodge = false;
   pressed.start = false;
 
-  animate(player, game.realT, real);
-  animate(cpu, game.realT + 1.7, real);
+  for (const w of actives()) animate(w, game.realT + slotOf(w) * 1.7, real);
   updateParticles(real * Math.max(0.35, game.timeScale));
   // More cameras going off when it's tense (locked together, or a big moment).
   updateFlashes(real, game.phase === 'fight' ? 1 + Math.min(2, contact.t) : 0.6);
@@ -828,5 +964,5 @@ function tick(now, draw) {
 }
 requestAnimationFrame(frame);
 
-// For testing in the console: window.roast.game, .player, .cpu
-window.roast = { game, player, cpu, brain, match, online, startBout, beginTournament, debugRig };
+// For testing in the console: window.roast.game, .wrestlers, .player (blue), .cpu (red)
+window.roast = { game, wrestlers, player, cpu, brain, match, online, startBout, beginTournament, debugRig };

@@ -277,7 +277,7 @@ function drawSelect() {
   const sides = match.side === 'p' ? { p: mine, a: other } : { p: other, a: mine };
   renderSelect(sides);
   $('ready-btn').classList.toggle('on', sel.locked);
-  $('ready-btn').querySelector('b').textContent = sel.locked ? 'READY ✓' : 'READY';
+
   // The two chickens in the ring wear the picks (and crouch once locked in).
   const blue = sides.p.waiting ? player.kind : ROSTER[sides.p.i];
   const red = sides.a.waiting ? cpu.kind : ROSTER[sides.a.i];

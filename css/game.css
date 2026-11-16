@@ -97,9 +97,11 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .online-card { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(420px, 92vw); }
 .online-card > .mode-btn { width: 100%; }
 .or { color: var(--muted); font-family: var(--serif); letter-spacing: 0.1em; }
-.join-row { display: flex; gap: 10px; width: 100%; }
+.join-row { display: flex; gap: 10px; width: 100%; align-items: stretch; }
+.join-row .mode-btn { justify-content: center; padding: 0 22px; }
+.join-row .mode-btn b { letter-spacing: 0.16em; margin-right: -0.16em; }   /* trailing tracking would push the word off-centre */
 #code-input {
-  flex: 1; min-width: 0; padding: 10px; font-family: var(--serif); font-size: 30px; font-weight: 800; letter-spacing: 0.4em; text-align: center;
+  flex: 1; min-width: 0; padding: 10px; font-family: var(--serif); font-size: 30px; font-weight: 800; letter-spacing: 0.4em; text-indent: 0.4em; text-align: center;
   text-transform: uppercase; color: var(--ink); background: rgba(18, 12, 8, 0.85); border: 1px solid var(--line); border-radius: 12px;
   user-select: text; -webkit-user-select: text;
 }
@@ -151,4 +153,6 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 
 .ready-btn { display: block; margin: 4px auto 0; min-width: 200px; padding: 6px 28px; }
 .ready-btn b { font-size: 18px; letter-spacing: 0.2em; }
-.ready-btn.on { border-color: var(--gold); background: rgba(199, 160, 80, 0.22); box-shadow: 0 0 18px rgba(199, 160, 80, 0.35); }
+.ready-btn.on, .ready-btn.on:hover { border-color: var(--gold); background: linear-gradient(180deg, #f3d48e, #c99a45); box-shadow: 0 0 18px rgba(232, 194, 122, 0.45); }
+.ready-btn.on b { color: #2a1a0c; }
+.ready-btn b { margin-right: -0.2em; }

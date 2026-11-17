@@ -4,13 +4,14 @@
 const TRACKS = {
   menu: { src: 'assets/music/hitslab-japan-japanese-music.mp3', vol: 0.22 },
   fight: { src: 'assets/music/sonican-taiko-energy.mp3', vol: 0.4 },
+  victory: { src: 'assets/music/lnplusmusic-victory-nomination-winner-champion-music.mp3', vol: 0.5, once: true },
 };
 const FADE = 1.2;   // seconds to fade a track fully in or out
 
 const players = {};
 for (const [name, t] of Object.entries(TRACKS)) {
   const el = new Audio(t.src);
-  el.loop = true;
+  el.loop = !t.once;
   el.preload = 'auto';
   el.volume = 0;
   players[name] = { el, level: 0, max: t.vol };
@@ -36,6 +37,9 @@ function tryAutoplay(dt) {
   p.el.play().then(unlock).catch(() => {});
 }
 let musicMuted = false;
+let victorious = false;
+// You won the tournament: the victory music plays (from the top) for the champion screen.
+export function victory() { victorious = true; const p = players.victory; p.el.currentTime = 0; p.level = Math.max(p.level, 0.6); }
 export function setMusicMuted(m) { musicMuted = m; }
 
 const MENU_PHASES = ['title', 'select', 'plan', 'practice'];   // title is the home lobby; plan the solo battle plan; practice is out on the clifftop, to the gentle track
@@ -44,14 +48,16 @@ const MENU_PHASES = ['title', 'select', 'plan', 'practice'];   // title is the h
 export function updateMusic(phase, dt) {
   updateCrowd(phase, dt);
   // Menu music on the menus; the drums only while a round is being fought (not the build-up or the verdict).
-  want = MENU_PHASES.includes(phase) ? 'menu' : phase === 'fight' ? 'fight' : null;
+  // Winning the whole thing: the victory music, played once through.
+  want = phase === 'champion' && victorious ? 'victory' : MENU_PHASES.includes(phase) ? 'menu' : phase === 'fight' ? 'fight' : null;
+  if (phase !== 'champion') victorious = false;
   if (!unlocked) { if (want === 'menu' && !musicMuted) tryAutoplay(dt); return; }
   for (const [name, p] of Object.entries(players)) {
     const target = name === want && !musicMuted ? 1 : 0;
     const fade = name === 'fight' && target === 0 ? 0.5 : FADE;   // the drums stop quickly when the round ends
     p.level += Math.sign(target - p.level) * Math.min(Math.abs(target - p.level), dt / fade);
     p.el.volume = Math.min(1, Math.max(0, p.level * p.max));
-    if (p.level > 0 && p.el.paused) {
+    if (p.level > 0 && p.el.paused && !(TRACKS[name].once && p.el.ended && name === want)) {
       if (name === want && p.level <= dt / FADE + 1e-6) p.el.currentTime = 0;   // each round's drums start from the top
       p.el.play().catch(() => {});
     } else if (p.level === 0 && !p.el.paused) {

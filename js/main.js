@@ -10,7 +10,8 @@ import { buildSlots, renderSlots } from './lobby.js';
 import { createOnline, groupRoom } from './online.js';
 import { Wrestler, stepWrestler, collide, clock, contact } from './physics.js';
 import { Brain } from './ai.js';
-import { updateMusic, cheer, applause, musicState, setMusicMuted, setCrowdMuted, setCrowdHere } from './music.js';
+import { updateMusic, cheer, applause, musicState, setMusicMuted, setCrowdMuted, setCrowdHere, victory } from './music.js';
+import { confetti } from './confetti.js';
 import { say, voiceKey, preloadVoices, setVoiceMuted } from './voice.js';
 import { keys, pressed, pollPad, playerIntent, inputState, camDrag, isTouch } from './input.js';
 import { showGamepad } from './touchpad.js';
@@ -774,6 +775,7 @@ function showChampion() {
   game.phaseT = 0;
   sfx.taiko(); sfx.taiko(0.25); sfx.taiko(0.5);
   applause();
+  if (youWon) { victory(); confetti(); }
 }
 
 // =====================================================================================
@@ -949,7 +951,7 @@ function updateFlow(real) {
       if (!$('dec-offer').hidden) {
         // The harder-tournament offer waits a little longer for an answer; Enter takes it, the timer goes home.
         const wait = CHAMPION_WAIT + 10, l2 = Math.max(0, Math.ceil(wait - game.phaseT));
-        $('dec-cta').textContent = `${isTouch() ? 'TAP' : 'ENTER'} FOR A TOUGHER TOURNAMENT · ${l2}`;
+        $('dec-cta').textContent = `${isTouch() ? 'TAP' : 'ENTER'} TO PLAY THE NEXT TOURNAMENT · ${l2}`;
         if (pressed.start && game.phaseT > 0.5) harderTournament();
         else if (game.phaseT >= wait) goTitle();
         break;

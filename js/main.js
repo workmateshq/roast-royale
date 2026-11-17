@@ -295,6 +295,7 @@ function showScreen(id) {
 
 // Home, out of any ring (the lobby's setup view): leaves the ring you were in.
 function goTitle(note = '') {
+  $('dec-offer').hidden = true;   // the tougher-tournament offer belongs to the champion screen only
   if ((match.mode === 'online' || online.connecting) && online.net) online.net.leave();
   Object.assign(online, { players: [], hostId: null, link: false, connecting: false });
   match.mode = 'solo';
@@ -734,6 +735,7 @@ const waitCta = () => (isGuest() ? (online.players.length > 2 ? 'WAITING FOR THE
 // The winning technique, written as it would be on the banzuke.
 const KANJI = { 'YORIKIRI!': '寄り切り', 'KOPPORI!': 'こっぽり', 'ISAMIASHI!': '勇み足', 'MONO-II!': '物言い', 'YŪSHŌ': '優勝' };
 function showDecision() {
+  $('dec-offer').hidden = true;   // the tougher-tournament offer belongs to the champion screen only
   const d = game.decision;
   $('decision').classList.remove('continue');
   $('dec-gloss').textContent = d.gloss;
@@ -901,6 +903,7 @@ function soloStageOver() {
   } else showContinue();
 }
 function showContinue() {
+  $('dec-offer').hidden = true;   // the tougher-tournament offer belongs to the champion screen only
   const r = stageRival(solo.stage);
   $('decision').classList.add('continue');
   $('dec-gloss').textContent = `STAGE ${solo.stage + 1} OF ${STAGES} · DEFEATED BY ${r.mirror ? 'YOUR OWN REFLECTION' : r.name}`;

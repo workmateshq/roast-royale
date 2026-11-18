@@ -359,7 +359,7 @@ function renderLobby() {
   // The host sees Start once a mate's in; until then (and for everyone else) a line under the slots says what's next.
   $('start-btn').hidden = !canBegin();
   $('start-btn').querySelector('b').textContent = `Start game with ${n} players`;
-  $('lobby-wait').textContent = online.net.isHost ? 'Waiting for mates to join… or climb the solo tournament instead.' : `Waiting for ${host ? pTag(host.slot - 1) : 'the host'} to start…`;
+  $('lobby-wait').textContent = online.net.isHost ? 'Waiting for others to join or climb the solo tournament instead.' : `Waiting for ${host ? pTag(host.slot - 1) : 'the host'} to start…`;
   // On your own in a ring, you can go solo instead (leaving the ring).
   $('room-solo').hidden = n !== 1;
 }
@@ -505,7 +505,7 @@ function drawSelect() {
   if (match.mode === 'online') {
     const n = online.players.length;
     const ready = online.players.filter((p) => (p.id === online.net.id ? sel.locked : p.locked)).length;
-    $('room-status').textContent = n < 2 ? 'Waiting for mates. Send them the code or link.'
+    $('room-status').textContent = n < 2 ? 'Waiting for others to join. Send them the code or link.'
       : ready === n ? "Everyone's ready!"
         : sel.locked ? 'Waiting for everyone to be ready...' : `${n} wrestlers in the ring. Choose your chicken.`;
   }
